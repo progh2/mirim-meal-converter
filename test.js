@@ -45,6 +45,33 @@ var NEIS_DINNER = {
   NTR_INFO: "단백질(g) : 30.0<br/>칼슘(mg) : 100.0<br/>철분(mg) : 2.4"
 };
 
+function assertNoKeyInUrl(url, label) {
+  assert(!/(?:\?|&)KEY=/i.test(url), label + " must not send KEY: " + url);
+}
+
+var html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+assert(html.indexOf("미림마이스터고") !== -1, "default school example in search field");
+assert(!/id=["'][^"']*key[^"']*["']/i.test(html), "no API key input in the page");
+assert(html.indexOf("type=\"password\"") === -1, "no secret/password field");
+
+var schoolUrl = conv.neisUrl("schoolInfo", {
+  Type: "json",
+  pIndex: 1,
+  pSize: 100,
+  SCHUL_NM: "미림마이스터고"
+});
+var mealUrl = conv.neisUrl("mealServiceDietInfo", {
+  Type: "json",
+  pIndex: 1,
+  pSize: 100,
+  ATPT_OFCDC_SC_CODE: "B10",
+  SD_SCHUL_CODE: "7011569",
+  MLSV_FROM_YMD: "20250901",
+  MLSV_TO_YMD: "20250930"
+});
+assertNoKeyInUrl(schoolUrl, "schoolInfo URL");
+assertNoKeyInUrl(mealUrl, "mealServiceDietInfo URL");
+
 console.log("NEIS mapping");
 
 var kcalCalcium = conv.parseNeisKcal(NEIS_BREAKFAST.CAL_INFO, NEIS_BREAKFAST.NTR_INFO);
@@ -119,6 +146,7 @@ function mealPayload(rows, total) {
       assert(url.indexOf("schoolInfo") !== -1, "schoolInfo endpoint");
       assert(url.indexOf("Type=json") !== -1, "school Type=json");
       assert(url.indexOf("SCHUL_NM=") !== -1, "SCHUL_NM");
+      assertNoKeyInUrl(url, "school search");
       return Promise.resolve(jsonRes(schoolPayload([
         { SCHUL_NM: "미림마이스터고등학교", ATPT_OFCDC_SC_CODE: "B10", SD_SCHUL_CODE: "7011569", ATPT_OFCDC_SC_NM: "서울특별시교육청" },
         { SCHUL_NM: "미림여자고등학교", ATPT_OFCDC_SC_CODE: "B10", SD_SCHUL_CODE: "7010167", ATPT_OFCDC_SC_NM: "서울특별시교육청" }
@@ -151,6 +179,7 @@ function mealPayload(rows, total) {
       assert(url.indexOf("mealServiceDietInfo") !== -1, "meal endpoint");
       assert(url.indexOf("pSize=100") !== -1, "pSize=100");
       assert(url.indexOf("MLSV_FROM_YMD=") !== -1 && url.indexOf("MLSV_TO_YMD=") !== -1, "month range");
+      assertNoKeyInUrl(url, "meal fetch");
       if (url.indexOf("pIndex=1") !== -1 && url.indexOf("MLSV_FROM_YMD=20250901") !== -1 && url.indexOf("MLSV_TO_YMD=20250930") !== -1) {
         return Promise.resolve(jsonRes(mealPayload(monthRows.slice(0, 1), 4)));
       }
