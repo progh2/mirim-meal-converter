@@ -656,6 +656,7 @@
   }
 
   function neisUrl(path, query) {
+    // Never add KEY. A GitHub Pages frontend cannot keep a secret.
     var keys = Object.keys(query);
     var q = keys.map(function (k) {
       var v = query[k] == null ? "" : query[k];

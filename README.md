@@ -2,7 +2,7 @@
 
 월별 식단표 엑셀 또는 나이스 급식 API로, 서울특별시교육청 연구정보원 학교 홈페이지 급식 업로드 양식(**mlsvTmplat**)을 만드는 정적 웹 앱입니다. 어느 학교든 쓸 수 있습니다.
 
-GitHub Pages에서 바로 사용합니다. 엑셀은 브라우저에서만 읽고, 나이스 조회는 [나이스 교육정보 개방 포털](https://open.neis.go.kr/)의 `schoolInfo`·`mealServiceDietInfo`를 호출합니다. 인증키를 넣지 않아도 일반 조회가 됩니다.
+GitHub Pages에서 바로 사용합니다. 엑셀은 브라우저에서만 읽고, 나이스 조회는 [나이스 교육정보 개방 포털](https://open.neis.go.kr/)의 `schoolInfo`·`mealServiceDietInfo`를 인증키 없이 호출합니다. 키 입력란이나 GitHub Secrets는 쓰지 않습니다. 프론트엔드에 넣으면 그대로 드러납니다.
 
 ## 사용 방법
 
