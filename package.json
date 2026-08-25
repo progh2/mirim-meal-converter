@@ -1,0 +1,8 @@
+{
+  "name": "mirim-meal-converter",
+  "private": true,
+  "description": "미림마이스터고 월별 식단표를 학교 홈페이지 mlsvTmplat 형식으로 변환",
+  "scripts": {
+    "test": "node test.js"
+  }
+}

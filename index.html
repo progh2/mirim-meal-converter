@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>급식 식단 변환</title>
+  <meta name="description" content="미림마이스터고 월별 식단표 엑셀을 학교 홈페이지 mlsvTmplat 업로드 형식으로 변환합니다.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <p class="eyebrow">미림마이스터고등학교</p>
+      <h1>급식 식단 변환</h1>
+      <p class="lede">월별 식단표 엑셀을 학교 홈페이지 급식 업로드 형식(mlsvTmplat)으로 바꿉니다. 파일은 이 컴퓨터 브라우저에서만 처리되며 어디에도 전송되지 않습니다.</p>
+    </header>
+    <section class="panel" aria-label="파일 올리기">
+      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-describedby="drop-hint">
+        <input id="file" type="file" accept=".xlsx,.xls" hidden>
+        <div class="drop-icon" aria-hidden="true">🍱</div>
+        <strong>식단표 엑셀을 끌어다 놓거나 클릭해서 선택</strong>
+        <p id="drop-hint">.xlsx / .xls · 달력형 월 식단표(조식·중식·석식)</p>
+        <button type="button" id="pick-btn" class="btn ghost">파일 선택</button>
+      </div>
+      <p id="file-name" class="file-name" hidden></p>
+      <div id="error" class="error" hidden role="alert"></div>
+    </section>
+
+    <section id="result" class="result" hidden>
+      <div class="result-bar">
+        <div>
+          <h2>미리보기</h2>
+          <p id="summary" class="summary"></p>
+        </div>
+        <button type="button" id="download" class="btn primary">엑셀 다운로드</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>날짜</th>
+              <th>끼니</th>
+              <th>Kcal</th>
+              <th>메뉴 (첫 줄)</th>
+            </tr>
+          </thead>
+          <tbody id="preview-body"></tbody>
+        </table>
+      </div>
+    </section>
+    <section class="howto" aria-labelledby="howto-title">
+      <h2 id="howto-title">사용 방법</h2>
+      <ol>
+        <li>영양사 선생님께 받은 <strong>그달 식단표</strong> 엑셀(.xlsx 또는 .xls)을 올립니다.</li>
+        <li>미리보기에서 날짜·끼니·칼로리·메뉴 첫 줄을 확인합니다.</li>
+        <li><strong>엑셀 다운로드</strong>로 받은 mlsvTmplat_YYYYMM.xlsx 를 학교 홈페이지 급식 등록(서식 업로드)에 올립니다.</li>
+      </ol>
+      <ul class="notes">
+        <li>토·일요일, 음식이 없는 공휴일(예: 추석), 빈 석식은 자동으로 빠집니다.</li>
+        <li>Kcal는 영양 칸의 숫자를 <strong>모두 더한 값</strong>입니다. 예: 708.6/19.1/245.8/4.5 → 978 (열량+단백질+칼슘+철분).</li>
+        <li>알레르기 숫자(배추김치9 등)와 / 로 이어진 메뉴는 그대로 둡니다.</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p>변환은 모두 브라우저에서 이루어집니다. 로그인이나 서버 API가 필요하지 않습니다.</p>
+    </footer>
+  </div>
+
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script src="convert.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
