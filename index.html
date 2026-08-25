@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>급식 식단 변환</title>
-  <meta name="description" content="미림마이스터고 월별 식단표 엑셀을 학교 홈페이지 mlsvTmplat 업로드 형식으로 변환합니다.">
+  <meta name="description" content="월별 식단표 엑셀 또는 나이스 급식 API로, 연구정보원 학교 홈페이지 급식 업로드 양식(mlsvTmplat)을 만듭니다.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
@@ -13,21 +13,48 @@
 <body>
   <div class="page">
     <header class="hero">
-      <p class="eyebrow">미림마이스터고등학교</p>
+      <p class="eyebrow">서울특별시교육청 연구정보원</p>
       <h1>급식 식단 변환</h1>
-      <p class="lede">월별 식단표 엑셀을 학교 홈페이지 급식 업로드 형식(mlsvTmplat)으로 바꿉니다. 파일은 이 컴퓨터 브라우저에서만 처리되며 어디에도 전송되지 않습니다.</p>
+      <p class="lede">월별 식단표 엑셀 또는 나이스 급식 API로, 연구정보원 학교 홈페이지 급식 업로드 양식(mlsvTmplat)을 만듭니다.</p>
     </header>
-    <section class="panel" aria-label="파일 올리기">
-      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-describedby="drop-hint">
-        <input id="file" type="file" accept=".xlsx,.xls" hidden>
-        <div class="drop-icon" aria-hidden="true">🍱</div>
-        <strong>식단표 엑셀을 끌어다 놓거나 클릭해서 선택</strong>
-        <p id="drop-hint">.xlsx / .xls · 달력형 월 식단표(조식·중식·석식)</p>
-        <button type="button" id="pick-btn" class="btn ghost">파일 선택</button>
-      </div>
-      <p id="file-name" class="file-name" hidden></p>
-      <div id="error" class="error" hidden role="alert"></div>
-    </section>
+
+    <div class="methods">
+      <section class="panel method" aria-labelledby="excel-title">
+        <h2 id="excel-title">식단표 엑셀 올리기</h2>
+        <p class="method-lede">영양사가 만든 달력형 월 식단표(.xlsx / .xls)를 이 브라우저에서만 읽습니다.</p>
+        <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-describedby="drop-hint">
+          <input id="file" type="file" accept=".xlsx,.xls" hidden>
+          <div class="drop-icon" aria-hidden="true">🍱</div>
+          <strong>식단표 엑셀을 끌어다 놓거나 클릭해서 선택</strong>
+          <p id="drop-hint">.xlsx / .xls · 달력형 월 식단표(조식·중식·석식)</p>
+          <button type="button" id="pick-btn" class="btn ghost">파일 선택</button>
+        </div>
+      </section>
+
+      <section class="panel method" aria-labelledby="neis-title">
+        <h2 id="neis-title">나이스에서 가져오기</h2>
+        <p class="method-lede">나이스 교육정보 개방 포털에서 학교와 연월을 골라 급식을 가져옵니다.</p>
+        <form id="neis-form" class="neis-form">
+          <label class="field">
+            <span>학교 이름</span>
+            <span class="field-row">
+              <input id="school-q" type="search" name="school" value="미림마이스터고" autocomplete="off" enterkeyhint="search">
+              <button type="submit" id="school-search" class="btn ghost">학교 찾기</button>
+            </span>
+          </label>
+          <div id="school-results" class="school-results" hidden></div>
+          <p id="school-picked" class="school-picked"></p>
+          <label class="field">
+            <span>연월</span>
+            <input id="neis-month" type="month" name="month" required>
+          </label>
+          <button type="button" id="neis-fetch" class="btn primary">급식 가져오기</button>
+        </form>
+      </section>
+    </div>
+
+    <p id="file-name" class="file-name" hidden></p>
+    <div id="error" class="error" hidden role="alert"></div>
 
     <section id="result" class="result" hidden>
       <div class="result-bar">
@@ -54,19 +81,19 @@
     <section class="howto" aria-labelledby="howto-title">
       <h2 id="howto-title">사용 방법</h2>
       <ol>
-        <li>영양사 선생님께 받은 <strong>그달 식단표</strong> 엑셀(.xlsx 또는 .xls)을 올립니다.</li>
+        <li><strong>식단표 엑셀 올리기</strong>로 그달 달력형 식단표(.xlsx 또는 .xls)를 올리거나, <strong>나이스에서 가져오기</strong>로 학교를 찾고 연월을 고릅니다.</li>
         <li>미리보기에서 날짜·끼니·칼로리·메뉴 첫 줄을 확인합니다.</li>
-        <li><strong>엑셀 다운로드</strong>로 받은 mlsvTmplat_YYYYMM.xlsx 를 학교 홈페이지 급식 등록(서식 업로드)에 올립니다.</li>
+        <li><strong>엑셀 다운로드</strong>로 받은 mlsvTmplat_YYYYMM.xlsx 를 연구정보원 학교 홈페이지 급식 등록(서식 업로드)에 올립니다.</li>
       </ol>
       <ul class="notes">
-        <li>토·일요일, 음식이 없는 공휴일(예: 추석), 빈 석식은 자동으로 빠집니다.</li>
-        <li>Kcal는 영양 칸의 숫자를 <strong>모두 더한 값</strong>입니다. 예: 708.6/19.1/245.8/4.5 → 978 (열량+단백질+칼슘+철분).</li>
+        <li>나이스에 없는 날(주말·공휴일·빈 석식, 아직 공개되지 않은 달)은 자동으로 빠집니다.</li>
+        <li>Kcal는 열량·단백질·칼슘·철분을 <strong>모두 더한 값</strong>입니다. 열량만 쓰지 않습니다.</li>
         <li>알레르기 숫자(배추김치9 등)와 / 로 이어진 메뉴는 그대로 둡니다.</li>
       </ul>
     </section>
 
     <footer>
-      <p>변환은 모두 브라우저에서 이루어집니다. 로그인이나 서버 API가 필요하지 않습니다.</p>
+      <p>엑셀은 이 브라우저에서만 읽고, 나이스 조회는 교육부 나이스 교육정보 개방 포털에서 가져옵니다. 로그인이나 별도 프로그램은 필요하지 않습니다.</p>
     </footer>
   </div>
 
