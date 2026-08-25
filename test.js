@@ -68,7 +68,10 @@ console.log("kcal 칼슔", kcalCalsu);
 assert(kcalCalsu === 1256.5, "NEIS kcal CAL_INFO only 1256.5 got " + kcalCalsu);
 
 assert(conv.parseNeisKcal("1256.5 Kcal", "") === 1256.5, "CAL_INFO alone is Kcal");
-assert(conv.parseKcal("708.6/19.1/245.8/4.5") === 978, "excel parseKcal sum 978");
+assert(conv.parseNeisKcal("948.4 Kcal") === 948.4, "parseNeisKcal 948.4 Kcal");
+var kcalSample = conv.parseKcal("708.6/19.1/245.8/4.5");
+assert(kcalSample === 708.6, "parseKcal first number 708.6 got " + kcalSample);
+assert(kcalSample !== 978, "must not sum excel nutrition parts");
 
 var kcalAug = conv.parseNeisKcal(NEIS_AUG25_BREAKFAST.CAL_INFO, NEIS_AUG25_BREAKFAST.NTR_INFO);
 console.log("kcal 2026-08-25 조식", kcalAug);
@@ -266,7 +269,7 @@ function runExcelTests(XLSX) {
   assert(records.length >= 54 && records.length <= 58, "expected ~56 rows, got " + records.length);
   assert(records.length === 56, "exact 56 rows preferred, got " + records.length);
   assert(!!b0901, "missing 9/1 조식");
-  assert(b0901 && b0901.kcal === 978, "9/1 조식 kcal expected 978 got " + (b0901 && b0901.kcal));
+  assert(b0901 && b0901.kcal === 708.6, "9/1 조식 kcal expected 708.6 got " + (b0901 && b0901.kcal));
   assert(b0901 && b0901.firstDish.indexOf("루테인쌀밥") !== -1, "9/1 조식 first dish");
 
   assert(!find("2026-09-04", "석식"), "should skip 9/4 석식");
@@ -294,8 +297,9 @@ function runExcelTests(XLSX) {
   assert(!find("2026-09-18", "석식"), "no 9/18 석식");
   assert(!find("2026-09-11", "석식"), "no 9/11 석식");
 
-  var kcalSample = conv.parseKcal("708.6/19.1/245.8/4.5");
-  assert(kcalSample === 978, "parseKcal sum 978 got " + kcalSample);
+  var kcalExcel = conv.parseKcal("708.6/19.1/245.8/4.5");
+  assert(kcalExcel === 708.6, "parseKcal first number 708.6 got " + kcalExcel);
+  assert(kcalExcel !== 978, "must not sum excel nutrition parts");
 
   records.forEach(function (r) {
     console.log(r.dateStr, r.mealName, "kcal=" + r.kcal, "|", r.firstDish);
