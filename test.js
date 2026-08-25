@@ -163,8 +163,101 @@ var aoaOn = writeAoa(mapped.records, { zeroKcal: true });
 assert(aoaOn[1][3] === mapped.records[0].menu, "writeSheetJS zeroKcal does not write joke into menu");
 aoaOn.slice(1).forEach(function (row, i) {
   assert(row[4] === 0, "writeSheetJS zeroKcal row " + (i + 1) + " Kcal 0");
+  assert(typeof row[4] === "number", "writeSheetJS zeroKcal row " + (i + 1) + " Kcal is numeric 0");
+  assert(row[4] !== "" && row[4] != null, "writeSheetJS zeroKcal row " + (i + 1) + " Kcal is not blank");
   assert(row[3] === mapped.records[i].menu, "writeSheetJS zeroKcal row " + (i + 1) + " menu unchanged");
 });
+
+var rec1393 = {
+  y: 2026,
+  m: 8,
+  d: 25,
+  dateStr: "2026-08-25",
+  mealCode: 1,
+  mealName: "중식",
+  menu: "쌀밥\n된장찌개",
+  kcal: 1393.1,
+  firstDish: "쌀밥"
+};
+assert(conv.kcalForWrite(rec1393, { zeroKcal: true }) === 0, "kcalForWrite 1393.1 → 0");
+assert(conv.kcalForWrite(rec1393, { zeroKcal: false }) === 1393.1, "kcalForWrite false keeps 1393.1");
+var copiedZero = conv.recordsForWrite([rec1393], { zeroKcal: true });
+assert(copiedZero[0].kcal === 0, "recordsForWrite zeros kcal");
+assert(copiedZero[0] !== rec1393, "recordsForWrite returns a shallow copy");
+assert(rec1393.kcal === 1393.1, "recordsForWrite does not mutate source kcal");
+assert(copiedZero[0].menu === rec1393.menu, "recordsForWrite keeps menu");
+assert(conv.recordsForWrite([rec1393], { zeroKcal: false })[0].kcal === 1393.1, "recordsForWrite off keeps 1393.1");
+
+var aoa1393Off = writeAoa([rec1393], { zeroKcal: false });
+assert(aoa1393Off[1][4] === 1393.1, "writeSheetJS false keeps 1393.1");
+var aoa1393On = writeAoa([rec1393], { zeroKcal: true });
+assert(aoa1393On[1][4] === 0, "writeSheetJS true writes numeric 0 not 1393.1");
+assert(typeof aoa1393On[1][4] === "number", "writeSheetJS true Kcal is a number");
+assert(aoa1393On[1][3] === rec1393.menu, "writeSheetJS true does not write joke into menu");
+assert(JSON.stringify(aoa1393On).indexOf("1393.1") === -1, "zeroKcal aoa cannot emit 1393.1");
+assert(JSON.stringify(aoa1393On).indexOf("맛있게") === -1, "zeroKcal aoa cannot emit joke text");
+assert(rec1393.kcal === 1393.1, "writeSheetJS does not mutate source 1393.1");
+
+var alreadyZero = conv.recordsForWrite([rec1393], { zeroKcal: true });
+var aoaPreZero = writeAoa(alreadyZero);
+assert(aoaPreZero[1][4] === 0, "pre-zeroed records write 0 even without options");
+assert(typeof aoaPreZero[1][4] === "number", "pre-zeroed records write numeric 0");
+
+function writeExcelValues(records, options) {
+  var values = [];
+  var ExcelJS = {
+    Workbook: function () {
+      this.addWorksheet = function () {
+        return {
+          columns: null,
+          getRow: function (n) {
+            return {
+              height: 0,
+              getCell: function (col) {
+                var cell = {
+                  font: null,
+                  alignment: null,
+                  border: null,
+                  fill: null,
+                  numFmt: null
+                };
+                Object.defineProperty(cell, "value", {
+                  set: function (v) {
+                    if (n > 1) {
+                      values[n - 2] = values[n - 2] || [];
+                      values[n - 2][col - 1] = v;
+                    }
+                  },
+                  get: function () {
+                    return n > 1 && values[n - 2] ? values[n - 2][col - 1] : null;
+                  }
+                });
+                return cell;
+              }
+            };
+          }
+        };
+      };
+      this.xlsx = {
+        writeBuffer: function () {
+          return Promise.resolve([]);
+        }
+      };
+    }
+  };
+  return conv.writeExcelJS(ExcelJS, records, options).then(function () {
+    return values;
+  });
+}
+
+var html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+assert(/styles\.css\?v=/.test(html), "styles.css must have cache-bust query");
+assert(/convert\.js\?v=/.test(html), "convert.js must have cache-bust query");
+assert(/app\.js\?v=/.test(html), "app.js must have cache-bust query");
+var appSrc = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
+assert(/recordsForDownload/.test(appSrc), "download maps a kcal=0 shallow copy before write");
+assert(/copy\.kcal\s*=\s*0/.test(appSrc), "download copy sets kcal 0 when checked");
+assert(/writeSheetJS\(XLSX,\s*records,\s*options\)/.test(appSrc), "download still passes options into writeSheetJS");
 
 try {
   conv.recordsFromNeisRows([]);
@@ -278,6 +371,13 @@ function mealPayload(rows, total) {
     console.log("skip excel fixtures (set MEAL_SRC and vendor/xlsx.full.min.js to run)");
   }
 
+  var excelOn = await writeExcelValues([rec1393], { zeroKcal: true });
+  assert(excelOn[0][4] === 0, "writeExcelJS true writes numeric 0 not 1393.1");
+  assert(typeof excelOn[0][4] === "number", "writeExcelJS true Kcal is a number");
+  assert(excelOn[0][3] === rec1393.menu, "writeExcelJS true keeps menu");
+  var excelOff = await writeExcelValues([rec1393], { zeroKcal: false });
+  assert(excelOff[0][4] === 1393.1, "writeExcelJS false keeps 1393.1");
+
   if (fails.length) {
     console.error("\nFAIL (" + fails.length + ")");
     fails.forEach(function (f) { console.error(" -", f); });
@@ -381,8 +481,21 @@ function runExcelTests(XLSX) {
   var zi;
   for (zi = 1; zi < gridZero.length; zi++) {
     assert(gridZero[zi][4] === 0, "zeroKcal row " + zi + " Kcal expected 0 got " + gridZero[zi][4]);
+    assert(typeof gridZero[zi][4] === "number", "zeroKcal row " + zi + " Kcal is numeric");
     assert(gridZero[zi][3] === records[zi - 1].menu, "zeroKcal row " + zi + " menu unchanged");
   }
+  var rec1393Excel = {
+    y: 2026, m: 8, d: 25, dateStr: "2026-08-25",
+    mealCode: 1, mealName: "중식", menu: "쌀밥", kcal: 1393.1, firstDish: "쌀밥"
+  };
+  var buf1393 = Buffer.from(conv.writeSheetJS(XLSX, [rec1393Excel], { zeroKcal: true }));
+  var grid1393 = XLSX.utils.sheet_to_json(
+    XLSX.read(buf1393, { type: "buffer", cellDates: true }).Sheets.Sheet1,
+    { header: 1, raw: true, defval: null }
+  );
+  assert(grid1393[1][4] === 0, "xlsx zeroKcal cannot emit 1393.1, got " + grid1393[1][4]);
+  assert(typeof grid1393[1][4] === "number", "xlsx zeroKcal writes numeric 0");
+  assert(buf1393.indexOf(Buffer.from("1393.1")) === -1, "xlsx bytes must not contain 1393.1");
 
   if (fs.existsSync(AUG)) {
     try {
