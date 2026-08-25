@@ -480,6 +480,19 @@
     return rec && rec.kcal != null ? rec.kcal : 0;
   }
 
+  function recordsForWrite(records, options) {
+    records = records || [];
+    if (!(options && options.zeroKcal)) return records;
+    return records.map(function (rec) {
+      var copy = {};
+      for (var key in rec) {
+        if (Object.prototype.hasOwnProperty.call(rec, key)) copy[key] = rec[key];
+      }
+      copy.kcal = 0;
+      return copy;
+    });
+  }
+
   function applySheetJSSheet(XLSX, records, options) {
     var aoa = [HEADERS];
     var i, rec;
@@ -502,11 +515,21 @@
       { wch: 10 }
     ];
     ws["!rows"] = [{ hpt: 32 }];
-    var range = XLSX.utils.decode_range(ws["!ref"]);
+    var range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+    if (range.e.c < 4) range.e.c = 4;
+    if (records.length && range.e.r < records.length) range.e.r = records.length;
+    if (typeof XLSX.utils.encode_range === "function") {
+      ws["!ref"] = XLSX.utils.encode_range(range);
+    }
     for (var r = range.s.r; r <= range.e.r; r++) {
       for (var c = range.s.c; c <= range.e.c; c++) {
         var addr = XLSX.utils.encode_cell({ r: r, c: c });
         var cell = ws[addr];
+        if (r > 0 && c === 4) {
+          cell = ws[addr] = cell || {};
+          cell.t = "n";
+          cell.v = kcalForWrite(records[r - 1], options);
+        }
         if (!cell) continue;
         if (r === 0) {
           cell.s = cell.s || {};
@@ -529,6 +552,7 @@
   }
 
   function writeSheetJS(XLSX, records, options) {
+    records = recordsForWrite(records, options);
     var wb = XLSX.utils.book_new();
     var ws = applySheetJSSheet(XLSX, records, options);
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
@@ -850,6 +874,7 @@
   }
 
   function writeExcelJS(ExcelJS, records, options) {
+    records = recordsForWrite(records, options);
     var wb = new ExcelJS.Workbook();
     var ws = wb.addWorksheet("Sheet1", {
       views: [{ state: "frozen", ySplit: 1 }]
@@ -923,6 +948,7 @@
     writeSheetJS: writeSheetJS,
     writeExcelJS: writeExcelJS,
     kcalForWrite: kcalForWrite,
+    recordsForWrite: recordsForWrite,
     toExcelSerial: toExcelSerial,
     parseKcal: parseKcal,
     parseNeisKcal: parseNeisKcal,
