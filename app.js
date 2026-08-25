@@ -134,7 +134,7 @@
         "<td>" + escapeHtml(rec.dateStr) + "</td>" +
         "<td>" + escapeHtml(rec.mealName) + "</td>" +
         "<td>" + escapeHtml(rec.kcal) + "</td>" +
-        "<td>" + escapeHtml(rec.firstDish || "") + "</td>";
+        "<td class=\"menu-cell\">" + escapeHtml(rec.menu || "") + "</td>";
       tbody.appendChild(tr);
     });
     resultEl.hidden = false;

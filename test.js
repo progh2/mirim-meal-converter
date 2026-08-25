@@ -45,23 +45,61 @@ var NEIS_DINNER = {
   NTR_INFO: "단백질(g) : 30.0<br/>칼슘(mg) : 100.0<br/>철분(mg) : 2.4"
 };
 
+var NEIS_AUG25_BREAKFAST = {
+  ATPT_OFCDC_SC_CODE: "B10",
+  SD_SCHUL_CODE: "7011569",
+  SCHUL_NM: "미림마이스터고등학교",
+  MMEAL_SC_CODE: "1",
+  MMEAL_SC_NM: "조식",
+  MLSV_YMD: "20260825",
+  DDISH_NM: "보리쌀밥 <br/>단호박타락죽(j) (2.13)<br/>셀프토스트바(크로플) (1.2.5.6)<br/>청피망감자채볶음(j) (1.2.5.6.10.15.16)<br/>미니돈까스&케첩 (1.5.6.10.12)<br/>깍두기(조식) (9)",
+  CAL_INFO: "948.4 Kcal",
+  NTR_INFO: "탄수화물(g) : 100.0<br/>단백질(g) : 19.5<br/>지방(g) : 10.0<br/>칼슘(mg) : 119.3<br/>철분(mg) : 2.2"
+};
+
 console.log("NEIS mapping");
 
 var kcalCalcium = conv.parseNeisKcal(NEIS_BREAKFAST.CAL_INFO, NEIS_BREAKFAST.NTR_INFO);
 console.log("kcal 칼슘", kcalCalcium);
-assert(kcalCalcium === 976.7, "NEIS kcal 763.5+27.9+182.0+3.3 expected 976.7 got " + kcalCalcium);
+assert(kcalCalcium === 763.5, "NEIS kcal CAL_INFO only 763.5 got " + kcalCalcium);
 
 var kcalCalsu = conv.parseNeisKcal(NEIS_LUNCH_CALSU.CAL_INFO, NEIS_LUNCH_CALSU.NTR_INFO);
 console.log("kcal 칼슔", kcalCalsu);
-assert(kcalCalsu === 1874.4, "NEIS kcal 1256.5+51.5+561.3+5.1 expected 1874.4 got " + kcalCalsu);
+assert(kcalCalsu === 1256.5, "NEIS kcal CAL_INFO only 1256.5 got " + kcalCalsu);
 
-assert(conv.parseNeisKcal("1256.5 Kcal", "") === 0, "CAL_INFO alone must not become Kcal");
+assert(conv.parseNeisKcal("1256.5 Kcal", "") === 1256.5, "CAL_INFO alone is Kcal");
 assert(conv.parseKcal("708.6/19.1/245.8/4.5") === 978, "excel parseKcal sum 978");
+
+var kcalAug = conv.parseNeisKcal(NEIS_AUG25_BREAKFAST.CAL_INFO, NEIS_AUG25_BREAKFAST.NTR_INFO);
+console.log("kcal 2026-08-25 조식", kcalAug);
+assert(kcalAug === 948.4, "parseNeisKcal 948.4 not 1089.4, got " + kcalAug);
+assert(kcalAug !== 1089.4, "must not sum CAL_INFO + protein + calcium + iron");
 
 var dishes = conv.dishesFromNeis(NEIS_BREAKFAST.DDISH_NM);
 assert(dishes.length === 4, "split DDISH_NM on <br/>");
 assert(dishes[0] === "추가밥", "trim first dish");
-assert(dishes[1].indexOf("크로크무슈") === 0, "keep allergy numbers");
+assert(dishes[1] === "크로크무슈1.2.5.6.10", "stick allergy digits to name");
+
+var augDishes = conv.dishesFromNeis(NEIS_AUG25_BREAKFAST.DDISH_NM);
+console.log("2026-08-25 dishes:", augDishes);
+assert(augDishes.length === 6, "2026-08-25 breakfast has six lines, got " + augDishes.length);
+assert(augDishes[0] === "보리쌀밥", "keep NEIS first dish 보리쌀밥");
+assert(augDishes[1] === "단호박타락죽2.13", "drop (j), stick 2.13");
+assert(augDishes[2] === "셀프토스트바(크로플)1.2.5.6", "keep name parens, stick allergy");
+assert(augDishes[3] === "청피망감자채볶음1.2.5.6.10.15.16", "drop (j), keep NEIS order");
+assert(augDishes[4] === "미니돈까스&케첩1.5.6.10.12", "stick allergy to 케첩");
+assert(augDishes[5] === "깍두기9", "drop (조식), stick 9");
+assert(augDishes.join("\n").indexOf("보리쌀밥\n단호박타락죽") === 0, "not only 보리쌀밥");
+assert(conv.dishesFromNeis("깍두기(중식) (9)")[0] === "깍두기9", "drop (중식)");
+assert(conv.dishesFromNeis("깍두기(석식) (9)")[0] === "깍두기9", "drop (석식)");
+
+var augRec = conv.recordFromNeisRow(NEIS_AUG25_BREAKFAST);
+assert(!!augRec, "recordFromNeisRow 2026-08-25 breakfast");
+assert(augRec.menu.split("\n").length === 6, "record menu is full six lines");
+assert(augRec.menu.indexOf("단호박타락죽2.13") !== -1, "record includes 단호박타락죽2.13");
+assert(augRec.menu.indexOf("깍두기9") !== -1, "record includes 깍두기9");
+assert(augRec.menu !== augRec.firstDish, "menu is not only firstDish");
+assert(augRec.kcal === 948.4, "record kcal CAL_INFO 948.4 got " + augRec.kcal);
 
 var mapped = conv.recordsFromNeisRows([NEIS_DINNER, NEIS_LUNCH_CALSU, NEIS_BREAKFAST, {
   MMEAL_SC_CODE: "2",
@@ -78,7 +116,7 @@ assert(mapped.records[2].mealCode === 2 && mapped.records[2].mealName === "석�
 assert(mapped.records[0].dateStr === "2025-09-01", "dateStr");
 assert(mapped.records[0].menu.indexOf("\n") !== -1, "menu joined by newline");
 assert(mapped.records[2].dateStr === "2025-09-02", "sort by date then meal");
-assert(mapped.records[2].kcal === 877, "744.6+30+100+2.4 → 877 got " + mapped.records[2].kcal);
+assert(mapped.records[2].kcal === 744.6, "dinner CAL_INFO 744.6 got " + mapped.records[2].kcal);
 
 try {
   conv.recordsFromNeisRows([]);
@@ -168,7 +206,7 @@ function mealPayload(rows, total) {
   });
   assert(fetched.records.length === 4, "daily fallback assembled month, got " + fetched.records.length);
   assert(calls.some(function (u) { return /MLSV_FROM_YMD=20250901/.test(u) && /MLSV_TO_YMD=20250901/.test(u); }), "fallback uses same-day range");
-  assert(fetched.records[0].kcal === 976.7, "fetched breakfast kcal");
+  assert(fetched.records[0].kcal === 763.5, "fetched breakfast kcal CAL_INFO only");
 
   try {
     await conv.fetchNeisMeals({

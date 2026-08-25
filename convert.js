@@ -551,48 +551,29 @@
     return new Date(year, month, 0).getDate();
   }
 
-  function ntrNumber(info, names) {
-    var text = String(info || "").replace(/<br\s*\/?>/gi, "\n");
-    var i, re, m;
-    for (i = 0; i < names.length; i++) {
-      re = new RegExp(names[i] + "(?:\\([^)]*\\))?\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)");
-      m = text.match(re);
-      if (m) return parseFloat(m[1]);
-    }
-    return null;
+  // NEIS Kcal is CAL_INFO only. Do not add NTR_INFO — 칼슘 is mg.
+  function parseNeisKcal(calInfo) {
+    if (calInfo == null || !String(calInfo).trim()) return 0;
+    var cm = String(calInfo).replace(/,/g, "").match(/([0-9]+(?:\.[0-9]+)?)/);
+    if (!cm) return 0;
+    return neatRound(parseFloat(cm[1]));
   }
 
-  function parseNeisKcal(calInfo, ntrInfo) {
-    var vals = [];
-    var cal = null;
-    var protein;
-    var calcium;
-    var iron;
-    var sum = 0;
-    var i;
-    if (calInfo != null && String(calInfo).trim()) {
-      var cm = String(calInfo).replace(/,/g, "").match(/([0-9]+(?:\.[0-9]+)?)/);
-      if (cm) cal = parseFloat(cm[1]);
-    }
-    protein = ntrNumber(ntrInfo, ["단백질"]);
-    calcium = ntrNumber(ntrInfo, ["칼슘", "칼슔"]);
-    iron = ntrNumber(ntrInfo, ["철분"]);
-    if (cal != null) vals.push(cal);
-    if (protein != null) vals.push(protein);
-    if (calcium != null) vals.push(calcium);
-    if (iron != null) vals.push(iron);
-    if (vals.length < 2) return 0;
-    for (i = 0; i < vals.length; i++) sum += vals[i];
-    return neatRound(sum);
+  function formatNeisDish(s) {
+    s = String(s || "").replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ").trim();
+    s = s.replace(/\s*\(\s*j\s*\)/gi, "");
+    s = s.replace(/\s*\(\s*(조식|중식|석식)\s*\)/g, "");
+    s = s.replace(/[ \t]+/g, " ").trim();
+    var m = s.match(/^(.*?)\s*\((\d+(?:\.\d+)*)\)\s*$/);
+    if (m) return m[1].replace(/[ \t]+/g, " ").trim() + m[2];
+    return s;
   }
 
   function dishesFromNeis(ddishNm) {
     if (ddishNm == null) return [];
     return String(ddishNm)
       .split(/<br\s*\/?>/i)
-      .map(function (s) {
-        return s.replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ").trim();
-      })
+      .map(formatNeisDish)
       .filter(function (s) {
         return !isBlank(s);
       });
@@ -620,7 +601,7 @@
       mealCode: meal.code,
       mealName: meal.name,
       menu: items.join("\n"),
-      kcal: parseNeisKcal(row.CAL_INFO, row.NTR_INFO),
+      kcal: parseNeisKcal(row.CAL_INFO),
       firstDish: items[0]
     };
   }
