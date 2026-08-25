@@ -121,6 +121,51 @@ assert(mapped.records[0].menu.indexOf("\n") !== -1, "menu joined by newline");
 assert(mapped.records[2].dateStr === "2025-09-02", "sort by date then meal");
 assert(mapped.records[2].kcal === 744.6, "dinner CAL_INFO 744.6 got " + mapped.records[2].kcal);
 
+assert(conv.kcalForWrite(mapped.records[0]) === 763.5, "kcalForWrite off keeps CAL_INFO");
+assert(conv.kcalForWrite(mapped.records[0], {}) === 763.5, "kcalForWrite empty options keeps kcal");
+assert(conv.kcalForWrite(mapped.records[0], { zeroKcal: false }) === 763.5, "kcalForWrite false keeps kcal");
+assert(conv.kcalForWrite(mapped.records[0], { zeroKcal: true }) === 0, "kcalForWrite true writes 0");
+var menuBeforeZero = mapped.records[0].menu;
+conv.kcalForWrite(mapped.records[0], { zeroKcal: true });
+assert(mapped.records[0].menu === menuBeforeZero, "kcalForWrite does not rewrite menu");
+mapped.records.forEach(function (rec) {
+  assert(conv.kcalForWrite(rec, { zeroKcal: true }) === 0, "every row writes 0 when flag on");
+  assert(conv.kcalForWrite(rec, { zeroKcal: false }) === rec.kcal, "every row keeps kcal when flag off");
+});
+
+function writeAoa(records, options) {
+  var aoa = null;
+  var stub = {
+    utils: {
+      aoa_to_sheet: function (rows) {
+        aoa = rows;
+        return { "!ref": "A1:E1" };
+      },
+      decode_range: function () {
+        return { s: { r: 0, c: 0 }, e: { r: 0, c: 0 } };
+      },
+      encode_cell: function () { return "A1"; },
+      book_new: function () { return {}; },
+      book_append_sheet: function () {}
+    },
+    write: function () { return []; }
+  };
+  conv.writeSheetJS(stub, records, options);
+  return aoa;
+}
+
+var aoaOff = writeAoa(mapped.records);
+assert(aoaOff.length === mapped.records.length + 1, "writeSheetJS row count");
+assert(aoaOff[1][4] === mapped.records[0].kcal, "writeSheetJS keeps kcal when flag off");
+assert(aoaOff[1][3] === mapped.records[0].menu, "writeSheetJS keeps menu when flag off");
+
+var aoaOn = writeAoa(mapped.records, { zeroKcal: true });
+assert(aoaOn[1][3] === mapped.records[0].menu, "writeSheetJS zeroKcal does not write joke into menu");
+aoaOn.slice(1).forEach(function (row, i) {
+  assert(row[4] === 0, "writeSheetJS zeroKcal row " + (i + 1) + " Kcal 0");
+  assert(row[3] === mapped.records[i].menu, "writeSheetJS zeroKcal row " + (i + 1) + " menu unchanged");
+});
+
 try {
   conv.recordsFromNeisRows([]);
   fails.push("empty NEIS rows should throw");
@@ -322,6 +367,21 @@ function runExcelTests(XLSX) {
   } else if (typeof a2 === "number") {
     var serial = conv.toExcelSerial(2026, 9, 1);
     assert(a2 === serial, "A2 serial " + a2 + " expected " + serial);
+  }
+  assert(grid2[1][4] === records[0].kcal, "writeSheetJS keeps kcal when zeroKcal off");
+  assert(grid2[1][3] === records[0].menu, "writeSheetJS keeps menu when zeroKcal off");
+
+  var zeroBuf = Buffer.from(conv.writeSheetJS(XLSX, records, { zeroKcal: true }));
+  var gridZero = XLSX.utils.sheet_to_json(
+    XLSX.read(zeroBuf, { type: "buffer", cellDates: true }).Sheets.Sheet1,
+    { header: 1, raw: true, defval: null }
+  );
+  assert(gridZero.length === records.length + 1, "zeroKcal output rows");
+  assert(gridZero[1][3] === records[0].menu, "zeroKcal must not change menu cell");
+  var zi;
+  for (zi = 1; zi < gridZero.length; zi++) {
+    assert(gridZero[zi][4] === 0, "zeroKcal row " + zi + " Kcal expected 0 got " + gridZero[zi][4]);
+    assert(gridZero[zi][3] === records[zi - 1].menu, "zeroKcal row " + zi + " menu unchanged");
   }
 
   if (fs.existsSync(AUG)) {

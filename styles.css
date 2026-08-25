@@ -163,6 +163,16 @@ h1 {
 
 .neis-form .btn.primary { align-self: flex-start; min-width: 160px; }
 
+.neis-warning {
+  margin: 0;
+  background: var(--err-bg);
+  color: var(--err-ink);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-weight: 500;
+  font-size: 14px;
+}
+
 .school-results { margin: 0; }
 
 .school-note {
@@ -230,6 +240,40 @@ h1 {
   margin-bottom: 14px;
 }
 
+.result-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.zero-kcal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+}
+
+.zero-kcal input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--sage);
+  cursor: pointer;
+}
+
+.zero-kcal-hint {
+  margin: 0;
+  max-width: 16em;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: right;
+  line-height: 1.45;
+}
+
 .result h2, .howto h2 {
   margin: 0 0 6px;
   font-size: 20px;
@@ -284,6 +328,8 @@ footer { color: var(--muted); font-size: 13px; text-align: center; }
 @media (max-width: 640px) {
   h1 { font-size: 28px; }
   .result-bar { flex-direction: column; align-items: stretch; }
+  .result-actions { align-items: stretch; }
+  .zero-kcal-hint { max-width: none; text-align: left; }
   .btn.primary { width: 100%; }
   .field-row { flex-direction: column; }
 }
