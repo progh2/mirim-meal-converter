@@ -475,8 +475,10 @@
     return pickMealSheet(XLSX, workbook);
   }
 
+  var ZERO_KCAL_TEXT = "맛있게 먹으면 0Kcal";
+
   function kcalForWrite(rec, options) {
-    if (options && options.zeroKcal) return 0;
+    if (options && options.zeroKcal) return ZERO_KCAL_TEXT;
     return rec && rec.kcal != null ? rec.kcal : 0;
   }
 
@@ -488,14 +490,14 @@
       for (var key in rec) {
         if (Object.prototype.hasOwnProperty.call(rec, key)) copy[key] = rec[key];
       }
-      copy.kcal = 0;
+      copy.kcal = ZERO_KCAL_TEXT;
       return copy;
     });
   }
 
   function applySheetJSSheet(XLSX, records, options) {
     var aoa = [HEADERS];
-    var i, rec;
+    var i, rec, kcalVal;
     for (i = 0; i < records.length; i++) {
       rec = records[i];
       aoa.push([
@@ -512,7 +514,7 @@
       { wch: 15 },
       { wch: 10 },
       { wch: 62 },
-      { wch: 10 }
+      { wch: options && options.zeroKcal ? 22 : 10 }
     ];
     ws["!rows"] = [{ hpt: 32 }];
     var range = XLSX.utils.decode_range(ws["!ref"] || "A1");
@@ -527,8 +529,9 @@
         var cell = ws[addr];
         if (r > 0 && c === 4) {
           cell = ws[addr] = cell || {};
-          cell.t = "n";
-          cell.v = kcalForWrite(records[r - 1], options);
+          kcalVal = kcalForWrite(records[r - 1], options);
+          cell.v = kcalVal;
+          cell.t = typeof kcalVal === "number" ? "n" : "s";
         }
         if (!cell) continue;
         if (r === 0) {
@@ -884,7 +887,7 @@
       { width: 15 },
       { width: 10 },
       { width: 62 },
-      { width: 10 }
+      { width: options && options.zeroKcal ? 22 : 10 }
     ];
     var thin = { style: "thin", color: { argb: "FF999999" } };
     var border = { top: thin, left: thin, bottom: thin, right: thin };
@@ -949,6 +952,7 @@
     writeExcelJS: writeExcelJS,
     kcalForWrite: kcalForWrite,
     recordsForWrite: recordsForWrite,
+    ZERO_KCAL_TEXT: ZERO_KCAL_TEXT,
     toExcelSerial: toExcelSerial,
     parseKcal: parseKcal,
     parseNeisKcal: parseNeisKcal,

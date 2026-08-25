@@ -136,14 +136,20 @@
     return { zeroKcal: !!(zeroKcalEl && zeroKcalEl.checked) };
   }
 
+  function zeroKcalText() {
+    return (typeof MealConverter !== "undefined" && MealConverter.ZERO_KCAL_TEXT) ||
+      "맛있게 먹으면 0Kcal";
+  }
+
   function recordsForDownload(records, options) {
     if (!(options && options.zeroKcal)) return records;
+    var text = zeroKcalText();
     return records.map(function (rec) {
       var copy = {};
       for (var key in rec) {
         if (Object.prototype.hasOwnProperty.call(rec, key)) copy[key] = rec[key];
       }
-      copy.kcal = 0;
+      copy.kcal = text;
       return copy;
     });
   }
@@ -151,13 +157,14 @@
   function fillPreview() {
     if (!current) return;
     var zero = writeOptions().zeroKcal;
+    var kcalText = zeroKcalText();
     tbody.textContent = "";
     current.records.forEach(function (rec) {
       var tr = document.createElement("tr");
       tr.innerHTML =
         "<td>" + escapeHtml(rec.dateStr) + "</td>" +
         "<td>" + escapeHtml(rec.mealName) + "</td>" +
-        "<td>" + escapeHtml(zero ? 0 : rec.kcal) + "</td>" +
+        "<td>" + escapeHtml(zero ? kcalText : rec.kcal) + "</td>" +
         "<td class=\"menu-cell\">" + escapeHtml(rec.menu || "") + "</td>";
       tbody.appendChild(tr);
     });
