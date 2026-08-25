@@ -475,7 +475,12 @@
     return pickMealSheet(XLSX, workbook);
   }
 
-  function applySheetJSSheet(XLSX, records) {
+  function kcalForWrite(rec, options) {
+    if (options && options.zeroKcal) return 0;
+    return rec && rec.kcal != null ? rec.kcal : 0;
+  }
+
+  function applySheetJSSheet(XLSX, records, options) {
     var aoa = [HEADERS];
     var i, rec;
     for (i = 0; i < records.length; i++) {
@@ -485,7 +490,7 @@
         rec.mealCode,
         rec.mealName,
         rec.menu,
-        rec.kcal
+        kcalForWrite(rec, options)
       ]);
     }
     var ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -523,9 +528,9 @@
     return ws;
   }
 
-  function writeSheetJS(XLSX, records) {
+  function writeSheetJS(XLSX, records, options) {
     var wb = XLSX.utils.book_new();
-    var ws = applySheetJSSheet(XLSX, records);
+    var ws = applySheetJSSheet(XLSX, records, options);
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
     return XLSX.write(wb, { bookType: "xlsx", type: "array" });
   }
@@ -844,7 +849,7 @@
     return recordsFromNeisRows(rows);
   }
 
-  function writeExcelJS(ExcelJS, records) {
+  function writeExcelJS(ExcelJS, records, options) {
     var wb = new ExcelJS.Workbook();
     var ws = wb.addWorksheet("Sheet1", {
       views: [{ state: "frozen", ySplit: 1 }]
@@ -901,7 +906,7 @@
       d.alignment = { wrapText: true, vertical: "middle" };
       d.border = border;
       var e = row.getCell(5);
-      e.value = rec.kcal;
+      e.value = kcalForWrite(rec, options);
       e.font = font;
       e.alignment = { horizontal: "center", vertical: "middle" };
       e.border = border;
@@ -917,6 +922,7 @@
     pickMealSheet: pickMealSheet,
     writeSheetJS: writeSheetJS,
     writeExcelJS: writeExcelJS,
+    kcalForWrite: kcalForWrite,
     toExcelSerial: toExcelSerial,
     parseKcal: parseKcal,
     parseNeisKcal: parseNeisKcal,

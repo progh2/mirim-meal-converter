@@ -10,6 +10,7 @@
   var summaryEl = document.getElementById("summary");
   var tbody = document.getElementById("preview-body");
   var downloadBtn = document.getElementById("download");
+  var zeroKcalEl = document.getElementById("zero-kcal");
   var schoolForm = document.getElementById("neis-form");
   var schoolQ = document.getElementById("school-q");
   var schoolResults = document.getElementById("school-results");
@@ -127,17 +128,27 @@
       result.records.length + "개 끼니" +
       (result.sheetName ? " · " + result.sheetName : "");
 
+    fillPreview();
+    resultEl.hidden = false;
+  }
+
+  function writeOptions() {
+    return { zeroKcal: !!(zeroKcalEl && zeroKcalEl.checked) };
+  }
+
+  function fillPreview() {
+    if (!current) return;
+    var zero = writeOptions().zeroKcal;
     tbody.textContent = "";
-    result.records.forEach(function (rec) {
+    current.records.forEach(function (rec) {
       var tr = document.createElement("tr");
       tr.innerHTML =
         "<td>" + escapeHtml(rec.dateStr) + "</td>" +
         "<td>" + escapeHtml(rec.mealName) + "</td>" +
-        "<td>" + escapeHtml(rec.kcal) + "</td>" +
+        "<td>" + escapeHtml(zero ? 0 : rec.kcal) + "</td>" +
         "<td class=\"menu-cell\">" + escapeHtml(rec.menu || "") + "</td>";
       tbody.appendChild(tr);
     });
-    resultEl.hidden = false;
   }
 
   function koreanError(err, fallback) {
@@ -285,14 +296,21 @@
   schoolForm.addEventListener("submit", searchSchools);
   fetchBtn.addEventListener("click", fetchMeals);
 
+  if (zeroKcalEl) {
+    zeroKcalEl.addEventListener("change", function () {
+      if (current) fillPreview();
+    });
+  }
+
   downloadBtn.addEventListener("click", async function () {
     if (!current) return;
     try {
       var out;
+      var options = writeOptions();
       if (typeof ExcelJS !== "undefined" && MealConverter.writeExcelJS) {
-        out = await MealConverter.writeExcelJS(ExcelJS, current.records);
+        out = await MealConverter.writeExcelJS(ExcelJS, current.records, options);
       } else {
-        out = MealConverter.writeSheetJS(XLSX, current.records);
+        out = MealConverter.writeSheetJS(XLSX, current.records, options);
       }
       var blob = new Blob([out], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

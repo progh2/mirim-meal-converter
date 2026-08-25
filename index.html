@@ -49,6 +49,7 @@
             <input id="neis-month" type="month" name="month" required>
           </label>
           <button type="button" id="neis-fetch" class="btn primary">급식 가져오기</button>
+          <p class="neis-warning" role="note">나이스 API에 등록된 열량 값이 잘못 계산된 경우가 많습니다. 홈페이지에 올리기 전에 급식실 식단표와 비교해 주세요.</p>
         </form>
       </section>
     </div>
@@ -62,7 +63,14 @@
           <h2>미리보기</h2>
           <p id="summary" class="summary"></p>
         </div>
-        <button type="button" id="download" class="btn primary">엑셀 다운로드</button>
+        <div class="result-actions">
+          <label class="zero-kcal">
+            <input id="zero-kcal" type="checkbox">
+            맛있게 먹으면 0kcal
+          </label>
+          <p class="zero-kcal-hint">체크하면 내려받는 파일의 Kcal를 모두 0으로 넣습니다.</p>
+          <button type="button" id="download" class="btn primary">엑셀 다운로드</button>
+        </div>
       </div>
       <div class="table-wrap">
         <table>
