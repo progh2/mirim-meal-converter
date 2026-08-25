@@ -10,13 +10,40 @@
   var summaryEl = document.getElementById("summary");
   var tbody = document.getElementById("preview-body");
   var downloadBtn = document.getElementById("download");
+  var schoolForm = document.getElementById("neis-form");
+  var schoolQ = document.getElementById("school-q");
+  var schoolResults = document.getElementById("school-results");
+  var schoolPicked = document.getElementById("school-picked");
+  var monthInput = document.getElementById("neis-month");
+  var fetchBtn = document.getElementById("neis-fetch");
 
   var current = null;
+  var selectedSchool = null;
+
+  function defaultSchool() {
+    var d = (typeof MealConverter !== "undefined" && MealConverter.DEFAULT_NEIS_SCHOOL) || {
+      SCHUL_NM: "미림마이스터고등학교",
+      ATPT_OFCDC_SC_CODE: "B10",
+      SD_SCHUL_CODE: "7011569",
+      ATPT_OFCDC_SC_NM: "서울특별시교육청"
+    };
+    return {
+      SCHUL_NM: d.SCHUL_NM,
+      ATPT_OFCDC_SC_CODE: d.ATPT_OFCDC_SC_CODE,
+      SD_SCHUL_CODE: d.SD_SCHUL_CODE,
+      ATPT_OFCDC_SC_NM: d.ATPT_OFCDC_SC_NM
+    };
+  }
+
+  function pad2(n) {
+    return (n < 10 ? "0" : "") + n;
+  }
 
   function showError(msg) {
     errorEl.hidden = false;
     errorEl.textContent = msg;
     resultEl.hidden = true;
+    fileNameEl.hidden = true;
     current = null;
   }
 
@@ -42,13 +69,63 @@
       .replace(/"/g, "&quot;");
   }
 
-  function render(result, originalName) {
+  function schoolLabel(school) {
+    return school.SCHUL_NM + " · " + (school.ATPT_OFCDC_SC_NM || "");
+  }
+
+  function renderPicked() {
+    if (!selectedSchool) {
+      schoolPicked.textContent = "목록에서 학교를 선택해 주세요.";
+      schoolPicked.classList.remove("is-set");
+      return;
+    }
+    schoolPicked.textContent = "선택한 학교: " + schoolLabel(selectedSchool);
+    schoolPicked.classList.add("is-set");
+  }
+
+  function renderSchoolResults(result) {
+    schoolResults.textContent = "";
+    if (!result || !result.schools || !result.schools.length) {
+      schoolResults.hidden = true;
+      return;
+    }
+    if (result.truncated) {
+      var note = document.createElement("p");
+      note.className = "school-note";
+      note.textContent = "검색 결과가 많습니다. 학교 이름을 더 구체적으로 입력해 주세요.";
+      schoolResults.appendChild(note);
+    }
+    var list = document.createElement("ul");
+    list.className = "school-list";
+    result.schools.forEach(function (school) {
+      var li = document.createElement("li");
+      var btn = document.createElement("button");
+      var selected = selectedSchool &&
+        selectedSchool.ATPT_OFCDC_SC_CODE === school.ATPT_OFCDC_SC_CODE &&
+        selectedSchool.SD_SCHUL_CODE === school.SD_SCHUL_CODE;
+      btn.type = "button";
+      btn.className = "school-item" + (selected ? " is-selected" : "");
+      btn.textContent = schoolLabel(school);
+      btn.addEventListener("click", function () {
+        selectedSchool = school;
+        renderPicked();
+        renderSchoolResults(result);
+      });
+      li.appendChild(btn);
+      list.appendChild(li);
+    });
+    schoolResults.appendChild(list);
+    schoolResults.hidden = false;
+  }
+
+  function render(result, sourceLabel) {
     current = result;
     fileNameEl.hidden = false;
-    fileNameEl.textContent = "올린 파일: " + originalName + "  →  " + result.filename;
+    fileNameEl.textContent = sourceLabel + "  →  " + result.filename;
     summaryEl.textContent =
       result.year + "년 " + result.month + "월 · " +
-      result.records.length + "개 끼니 · 시트 " + (result.sheetName || "");
+      result.records.length + "개 끼니" +
+      (result.sheetName ? " · " + result.sheetName : "");
 
     tbody.textContent = "";
     result.records.forEach(function (rec) {
@@ -61,6 +138,12 @@
       tbody.appendChild(tr);
     });
     resultEl.hidden = false;
+  }
+
+  function koreanError(err, fallback) {
+    var msg = (err && err.message) ? err.message : String(err);
+    if (err && err.name === "MealPlanError") return msg;
+    return fallback;
   }
 
   async function handleFile(file) {
@@ -81,18 +164,87 @@
       var buf = await readFile(file);
       var wb = XLSX.read(buf, { type: "array", cellDates: true });
       var result = MealConverter.parseWorkbook(XLSX, wb);
-      render(result, name);
+      render(result, "올린 파일: " + name);
     } catch (err) {
-      var msg = (err && err.message) ? err.message : String(err);
-      if (err && err.name !== "MealPlanError") {
-        msg = "식단표를 읽지 못했습니다. 월별 달력형 급식 식단표인지 확인해 주세요.";
-      }
-      showError(msg);
+      showError(koreanError(err, "식단표를 읽지 못했습니다. 월별 달력형 급식 식단표인지 확인해 주세요."));
     }
   }
 
   function openPicker() {
     fileInput.click();
+  }
+
+  async function searchSchools(ev) {
+    if (ev) ev.preventDefault();
+    clearError();
+    if (typeof MealConverter === "undefined") {
+      showError("변환 스크립트를 불러오지 못했습니다. 페이지를 새로고침해 주세요.");
+      return;
+    }
+    var q = schoolQ.value.trim();
+    try {
+      var result = await MealConverter.searchNeisSchools(q);
+      if (result.schools.length === 1) {
+        selectedSchool = result.schools[0];
+      } else if (selectedSchool) {
+        var keep = result.schools.some(function (s) {
+          return s.ATPT_OFCDC_SC_CODE === selectedSchool.ATPT_OFCDC_SC_CODE &&
+            s.SD_SCHUL_CODE === selectedSchool.SD_SCHUL_CODE;
+        });
+        if (!keep) selectedSchool = null;
+      }
+      renderPicked();
+      renderSchoolResults(result);
+    } catch (err) {
+      schoolResults.hidden = true;
+      selectedSchool = null;
+      renderPicked();
+      showError(koreanError(err, "학교를 검색하지 못했습니다. 잠시 후 다시 시도해 주세요."));
+    }
+  }
+
+  async function fetchMeals() {
+    clearError();
+    resultEl.hidden = true;
+    current = null;
+    if (typeof MealConverter === "undefined") {
+      showError("변환 스크립트를 불러오지 못했습니다. 페이지를 새로고침해 주세요.");
+      return;
+    }
+    if (!selectedSchool) {
+      showError("학교를 선택한 뒤 급식을 가져와 주세요.");
+      return;
+    }
+    var ym = (monthInput.value || "").split("-");
+    var year = +ym[0];
+    var month = +ym[1];
+    if (!year || !month) {
+      showError("연월을 선택해 주세요.");
+      return;
+    }
+    fetchBtn.disabled = true;
+    fetchBtn.textContent = "가져오는 중…";
+    try {
+      var result = await MealConverter.fetchNeisMeals({
+        ATPT_OFCDC_SC_CODE: selectedSchool.ATPT_OFCDC_SC_CODE,
+        SD_SCHUL_CODE: selectedSchool.SD_SCHUL_CODE,
+        year: year,
+        month: month
+      });
+      render(result, "나이스: " + selectedSchool.SCHUL_NM);
+    } catch (err) {
+      showError(koreanError(err, "나이스 급식 정보를 가져오지 못했습니다. 잠시 후 다시 시도해 주세요."));
+    } finally {
+      fetchBtn.disabled = false;
+      fetchBtn.textContent = "급식 가져오기";
+    }
+  }
+
+  selectedSchool = defaultSchool();
+  renderPicked();
+  if (monthInput && !monthInput.value) {
+    var now = new Date();
+    monthInput.value = now.getFullYear() + "-" + pad2(now.getMonth() + 1);
   }
 
   dropzone.addEventListener("click", function (e) {
@@ -129,6 +281,9 @@
     var files = e.dataTransfer && e.dataTransfer.files;
     if (files && files[0]) handleFile(files[0]);
   });
+
+  schoolForm.addEventListener("submit", searchSchools);
+  fetchBtn.addEventListener("click", fetchMeals);
 
   downloadBtn.addEventListener("click", async function () {
     if (!current) return;

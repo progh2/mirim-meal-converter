@@ -1,5 +1,5 @@
 /**
- * 미림마이스터고 월별 식단표 → 학교홈페이지 mlsvTmplat 변환
+ * 월별 식단표(엑셀 또는 나이스) → 연구정보원 학교 홈페이지 mlsvTmplat 변환
  * Browser + Node (no DOM).
  */
 (function (root, factory) {
@@ -336,7 +336,7 @@
     var dateRows = findDateRows(grid, ctx.year);
     if (!dateRows.length) {
       throw new MealPlanError(
-        "날짜가 있는 식단표를 찾지 못했습니다. 미림 월별 급식 식단표(.xlsx/.xls)인지 확인해 주세요."
+        "날짜가 있는 식단표를 찾지 못했습니다. 달력형 월별 급식 식단표(.xlsx/.xls)인지 확인해 주세요."
       );
     }
 
@@ -468,7 +468,7 @@
     }
     if (!best) {
       throw new MealPlanError(
-        "이 파일은 급식 식단표가 아닌 것 같습니다. 미림마이스터고 월별 식단표(조식·중식·석식) 엑셀을 올려 주세요."
+        "이 파일은 급식 식단표가 아닌 것 같습니다. 월별 달력형 식단표(조식·중식·석식) 엑셀을 올려 주세요."
       );
     }
     return best;
@@ -531,6 +531,339 @@
     var ws = applySheetJSSheet(XLSX, records);
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
     return XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  }
+
+  var NEIS_HUB = "https://open.neis.go.kr/hub";
+  var DEFAULT_NEIS_SCHOOL = {
+    SCHUL_NM: "미림마이스터고등학교",
+    searchName: "미림마이스터고",
+    ATPT_OFCDC_SC_CODE: "B10",
+    SD_SCHUL_CODE: "7011569",
+    ATPT_OFCDC_SC_NM: "서울특별시교육청"
+  };
+  var NEIS_MEAL = {
+    "1": { code: 0, name: "조식" },
+    "2": { code: 1, name: "중식" },
+    "3": { code: 2, name: "석식" }
+  };
+
+  function lastDayOfMonth(year, month) {
+    return new Date(year, month, 0).getDate();
+  }
+
+  function ntrNumber(info, names) {
+    var text = String(info || "").replace(/<br\s*\/?>/gi, "\n");
+    var i, re, m;
+    for (i = 0; i < names.length; i++) {
+      re = new RegExp(names[i] + "(?:\\([^)]*\\))?\\s*:\\s*([0-9]+(?:\\.[0-9]+)?)");
+      m = text.match(re);
+      if (m) return parseFloat(m[1]);
+    }
+    return null;
+  }
+
+  function parseNeisKcal(calInfo, ntrInfo) {
+    var vals = [];
+    var cal = null;
+    var protein;
+    var calcium;
+    var iron;
+    var sum = 0;
+    var i;
+    if (calInfo != null && String(calInfo).trim()) {
+      var cm = String(calInfo).replace(/,/g, "").match(/([0-9]+(?:\.[0-9]+)?)/);
+      if (cm) cal = parseFloat(cm[1]);
+    }
+    protein = ntrNumber(ntrInfo, ["단백질"]);
+    calcium = ntrNumber(ntrInfo, ["칼슘", "칼슔"]);
+    iron = ntrNumber(ntrInfo, ["철분"]);
+    if (cal != null) vals.push(cal);
+    if (protein != null) vals.push(protein);
+    if (calcium != null) vals.push(calcium);
+    if (iron != null) vals.push(iron);
+    if (vals.length < 2) return 0;
+    for (i = 0; i < vals.length; i++) sum += vals[i];
+    return neatRound(sum);
+  }
+
+  function dishesFromNeis(ddishNm) {
+    if (ddishNm == null) return [];
+    return String(ddishNm)
+      .split(/<br\s*\/?>/i)
+      .map(function (s) {
+        return s.replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ").trim();
+      })
+      .filter(function (s) {
+        return !isBlank(s);
+      });
+  }
+
+  function parseYmdCompact(s) {
+    var t = String(s || "").replace(/\D/g, "");
+    if (t.length !== 8) return null;
+    return { y: +t.slice(0, 4), m: +t.slice(4, 6), d: +t.slice(6, 8) };
+  }
+
+  function recordFromNeisRow(row) {
+    if (!row) return null;
+    var meal = NEIS_MEAL[String(row.MMEAL_SC_CODE)];
+    if (!meal) return null;
+    var date = parseYmdCompact(row.MLSV_YMD);
+    if (!date) return null;
+    var items = dishesFromNeis(row.DDISH_NM);
+    if (!items.length) return null;
+    return {
+      y: date.y,
+      m: date.m,
+      d: date.d,
+      dateStr: formatYMD(date),
+      mealCode: meal.code,
+      mealName: meal.name,
+      menu: items.join("\n"),
+      kcal: parseNeisKcal(row.CAL_INFO, row.NTR_INFO),
+      firstDish: items[0]
+    };
+  }
+
+  function recordsFromNeisRows(rows) {
+    var records = [];
+    var i, rec;
+    rows = rows || [];
+    for (i = 0; i < rows.length; i++) {
+      rec = recordFromNeisRow(rows[i]);
+      if (rec) records.push(rec);
+    }
+    records.sort(function (a, b) {
+      if (a.y !== b.y) return a.y - b.y;
+      if (a.m !== b.m) return a.m - b.m;
+      if (a.d !== b.d) return a.d - b.d;
+      return a.mealCode - b.mealCode;
+    });
+    if (!records.length) {
+      throw new MealPlanError(
+        "이 달의 급식 정보가 없습니다. 아직 나이스에 공개되지 않은 달일 수 있습니다."
+      );
+    }
+    var year = records[0].y;
+    var month = records[0].m;
+    return {
+      records: records,
+      year: year,
+      month: month,
+      filename: "mlsvTmplat_" + year + pad2(month) + ".xlsx",
+      sheetName: "나이스"
+    };
+  }
+
+  function neisUrl(path, query) {
+    var keys = Object.keys(query);
+    var q = keys.map(function (k) {
+      var v = query[k] == null ? "" : query[k];
+      return encodeURIComponent(k) + "=" + encodeURIComponent(v);
+    }).join("&");
+    return NEIS_HUB + "/" + path + "?" + q;
+  }
+
+  function readNeisPayload(data, listKey) {
+    if (!data || typeof data !== "object") {
+      return { code: "ERROR", message: "나이스 응답을 읽지 못했습니다.", total: 0, rows: [] };
+    }
+    if (data.RESULT && data.RESULT.CODE) {
+      return {
+        code: data.RESULT.CODE,
+        message: data.RESULT.MESSAGE || "",
+        total: 0,
+        rows: []
+      };
+    }
+    var block = data[listKey];
+    if (!Array.isArray(block) || !block.length) {
+      return { code: "ERROR", message: "나이스 응답 형식이 올바르지 않습니다.", total: 0, rows: [] };
+    }
+    var head = (block[0] && block[0].head) || [];
+    var code = "INFO-000";
+    var message = "";
+    var total = 0;
+    var rows = [];
+    var i, item;
+    for (i = 0; i < head.length; i++) {
+      item = head[i] || {};
+      if (item.list_total_count != null) total = Number(item.list_total_count) || 0;
+      if (item.RESULT && item.RESULT.CODE) {
+        code = item.RESULT.CODE;
+        message = item.RESULT.MESSAGE || "";
+      }
+    }
+    for (i = 0; i < block.length; i++) {
+      if (block[i] && Array.isArray(block[i].row)) {
+        rows = rows.concat(block[i].row);
+      }
+    }
+    return { code: code, message: message, total: total, rows: rows };
+  }
+
+  function getFetch(opts) {
+    if (opts && opts.fetch) return opts.fetch;
+    if (typeof fetch === "function") return fetch;
+    throw new MealPlanError("이 브라우저에서는 나이스 조회를 사용할 수 없습니다.");
+  }
+
+  async function fetchNeisJson(url, fetchFn) {
+    var res;
+    try {
+      res = await fetchFn(url);
+    } catch (e) {
+      throw new MealPlanError("나이스 교육정보 개방 포털에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    }
+    if (!res || !res.ok) {
+      throw new MealPlanError("나이스 교육정보 개방 포털에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    }
+    try {
+      return await res.json();
+    } catch (e) {
+      throw new MealPlanError("나이스 응답을 읽지 못했습니다.");
+    }
+  }
+
+  function mealQuery(office, school, fromYmd, toYmd, page) {
+    return neisUrl("mealServiceDietInfo", {
+      Type: "json",
+      pIndex: page || 1,
+      pSize: 100,
+      ATPT_OFCDC_SC_CODE: office,
+      SD_SCHUL_CODE: school,
+      MLSV_FROM_YMD: fromYmd,
+      MLSV_TO_YMD: toYmd
+    });
+  }
+
+  function rowKey(r) {
+    if (!r) return "";
+    return String(r.MLSV_YMD || "") + "|" + String(r.MMEAL_SC_CODE || "");
+  }
+
+  function isNoData(parsed) {
+    return parsed.code === "INFO-200" || (!parsed.rows.length && !parsed.total);
+  }
+
+  async function fetchMealPage(fetchFn, office, school, from, to, page) {
+    var url = mealQuery(office, school, from, to, page);
+    var data = await fetchNeisJson(url, fetchFn);
+    return readNeisPayload(data, "mealServiceDietInfo");
+  }
+
+  async function fetchMealsByDay(fetchFn, office, school, year, month) {
+    var last = lastDayOfMonth(year, month);
+    var days = [];
+    var rows = [];
+    var i = 0;
+    var workers = [];
+    var conc = 5;
+    var w;
+    function nextDay() {
+      var day = days[i];
+      i += 1;
+      return day;
+    }
+    async function worker() {
+      var day, ymd, page;
+      while (i < days.length) {
+        day = nextDay();
+        ymd = year + pad2(month) + pad2(day);
+        page = await fetchMealPage(fetchFn, office, school, ymd, ymd, 1);
+        if (page.rows && page.rows.length) rows = rows.concat(page.rows);
+      }
+    }
+    for (w = 1; w <= last; w++) days.push(w);
+    for (w = 0; w < conc; w++) workers.push(worker());
+    await Promise.all(workers);
+    return rows;
+  }
+
+  async function searchNeisSchools(name, opts) {
+    name = String(name || "").trim();
+    if (!name) {
+      throw new MealPlanError("학교 이름을 입력해 주세요.");
+    }
+    var fetchFn = getFetch(opts);
+    var url = neisUrl("schoolInfo", {
+      Type: "json",
+      pIndex: 1,
+      pSize: 100,
+      SCHUL_NM: name
+    });
+    var data = await fetchNeisJson(url, fetchFn);
+    var parsed = readNeisPayload(data, "schoolInfo");
+    if (parsed.code === "INFO-200" || !parsed.rows.length) {
+      throw new MealPlanError("검색한 이름의 학교를 찾지 못했습니다. 학교 이름을 다시 확인해 주세요.");
+    }
+    if (parsed.code && parsed.code !== "INFO-000") {
+      throw new MealPlanError(parsed.message || "학교를 검색하지 못했습니다.");
+    }
+    var schools = parsed.rows.map(function (r) {
+      return {
+        SCHUL_NM: r.SCHUL_NM,
+        ATPT_OFCDC_SC_CODE: r.ATPT_OFCDC_SC_CODE,
+        SD_SCHUL_CODE: r.SD_SCHUL_CODE,
+        ATPT_OFCDC_SC_NM: r.ATPT_OFCDC_SC_NM
+      };
+    });
+    return {
+      schools: schools,
+      total: parsed.total || schools.length,
+      truncated: (parsed.total || 0) > schools.length
+    };
+  }
+
+  async function fetchNeisMeals(params) {
+    params = params || {};
+    var office = params.ATPT_OFCDC_SC_CODE || params.atptOfcdcScCode;
+    var school = params.SD_SCHUL_CODE || params.sdSchulCode;
+    var year = Number(params.year);
+    var month = Number(params.month);
+    var fetchFn = getFetch(params);
+    var from;
+    var to;
+    var first;
+    var rows;
+    var total;
+    var page;
+    var next;
+    var firstKey;
+    if (!office || !school) {
+      throw new MealPlanError("학교를 선택한 뒤 급식을 가져와 주세요.");
+    }
+    if (!year || month < 1 || month > 12) {
+      throw new MealPlanError("연월을 선택해 주세요.");
+    }
+    from = year + pad2(month) + "01";
+    to = year + pad2(month) + pad2(lastDayOfMonth(year, month));
+    first = await fetchMealPage(fetchFn, office, school, from, to, 1);
+    if (isNoData(first)) {
+      throw new MealPlanError(
+        "이 달의 급식 정보가 없습니다. 아직 나이스에 공개되지 않은 달일 수 있습니다."
+      );
+    }
+    if (first.code && first.code !== "INFO-000") {
+      throw new MealPlanError(first.message || "나이스 급식 정보를 가져오지 못했습니다.");
+    }
+    rows = first.rows.slice();
+    total = first.total || rows.length;
+    firstKey = rowKey(rows[0]);
+    page = 2;
+    while (rows.length < total) {
+      next = await fetchMealPage(fetchFn, office, school, from, to, page);
+      if (!next.rows.length) break;
+      if (rowKey(next.rows[0]) === firstKey) break;
+      rows = rows.concat(next.rows);
+      if (next.rows.length < 100) break;
+      page += 1;
+      if (page > 50) break;
+    }
+    if (total && rows.length < total) {
+      rows = await fetchMealsByDay(fetchFn, office, school, year, month);
+    }
+    return recordsFromNeisRows(rows);
   }
 
   function writeExcelJS(ExcelJS, records) {
@@ -608,6 +941,15 @@
     writeExcelJS: writeExcelJS,
     toExcelSerial: toExcelSerial,
     parseKcal: parseKcal,
+    parseNeisKcal: parseNeisKcal,
+    dishesFromNeis: dishesFromNeis,
+    recordsFromNeisRows: recordsFromNeisRows,
+    recordFromNeisRow: recordFromNeisRow,
+    readNeisPayload: readNeisPayload,
+    searchNeisSchools: searchNeisSchools,
+    fetchNeisMeals: fetchNeisMeals,
+    neisUrl: neisUrl,
+    DEFAULT_NEIS_SCHOOL: DEFAULT_NEIS_SCHOOL,
     HEADERS: HEADERS
   };
 });
