@@ -268,6 +268,7 @@ th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--li
 th { background: var(--sage-soft); font-weight: 700; }
 tr:last-child td { border-bottom: 0; }
 td:nth-child(3) { font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.menu-cell { white-space: pre-line; }
 
 .howto ol { margin: 0 0 12px 1.2em; padding: 0; }
 .howto li { margin: 8px 0; }
