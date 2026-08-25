@@ -121,15 +121,22 @@ assert(mapped.records[0].menu.indexOf("\n") !== -1, "menu joined by newline");
 assert(mapped.records[2].dateStr === "2025-09-02", "sort by date then meal");
 assert(mapped.records[2].kcal === 744.6, "dinner CAL_INFO 744.6 got " + mapped.records[2].kcal);
 
+var JOKE = conv.ZERO_KCAL_TEXT;
+assert(JOKE === "맛있게 먹으면 0Kcal", "ZERO_KCAL_TEXT exact string with capital K");
 assert(conv.kcalForWrite(mapped.records[0]) === 763.5, "kcalForWrite off keeps CAL_INFO");
 assert(conv.kcalForWrite(mapped.records[0], {}) === 763.5, "kcalForWrite empty options keeps kcal");
 assert(conv.kcalForWrite(mapped.records[0], { zeroKcal: false }) === 763.5, "kcalForWrite false keeps kcal");
-assert(conv.kcalForWrite(mapped.records[0], { zeroKcal: true }) === 0, "kcalForWrite true writes 0");
+assert(conv.kcalForWrite(mapped.records[0], { zeroKcal: true }) === JOKE, "kcalForWrite true writes joke string");
+assert(conv.kcalForWrite(mapped.records[0], { zeroKcal: true }) !== 0, "kcalForWrite true is not numeric 0");
+assert(typeof conv.kcalForWrite(mapped.records[0], { zeroKcal: true }) === "string", "kcalForWrite true is a string");
 var menuBeforeZero = mapped.records[0].menu;
 conv.kcalForWrite(mapped.records[0], { zeroKcal: true });
 assert(mapped.records[0].menu === menuBeforeZero, "kcalForWrite does not rewrite menu");
 mapped.records.forEach(function (rec) {
-  assert(conv.kcalForWrite(rec, { zeroKcal: true }) === 0, "every row writes 0 when flag on");
+  var written = conv.kcalForWrite(rec, { zeroKcal: true });
+  assert(written === JOKE, "every row writes joke string when flag on");
+  assert(typeof written === "string", "every checked row Kcal is a string");
+  assert(written !== 0, "checked Kcal is not numeric 0");
   assert(conv.kcalForWrite(rec, { zeroKcal: false }) === rec.kcal, "every row keeps kcal when flag off");
 });
 
@@ -162,9 +169,107 @@ assert(aoaOff[1][3] === mapped.records[0].menu, "writeSheetJS keeps menu when fl
 var aoaOn = writeAoa(mapped.records, { zeroKcal: true });
 assert(aoaOn[1][3] === mapped.records[0].menu, "writeSheetJS zeroKcal does not write joke into menu");
 aoaOn.slice(1).forEach(function (row, i) {
-  assert(row[4] === 0, "writeSheetJS zeroKcal row " + (i + 1) + " Kcal 0");
+  assert(row[4] === JOKE, "writeSheetJS zeroKcal row " + (i + 1) + " Kcal joke string");
+  assert(typeof row[4] === "string", "writeSheetJS zeroKcal row " + (i + 1) + " Kcal is a string");
+  assert(row[4] !== 0, "writeSheetJS zeroKcal row " + (i + 1) + " Kcal is not numeric 0");
   assert(row[3] === mapped.records[i].menu, "writeSheetJS zeroKcal row " + (i + 1) + " menu unchanged");
 });
+
+var rec1393 = {
+  y: 2026,
+  m: 8,
+  d: 25,
+  dateStr: "2026-08-25",
+  mealCode: 1,
+  mealName: "중식",
+  menu: "쌀밥\n된장찌개",
+  kcal: 1393.1,
+  firstDish: "쌀밥"
+};
+assert(conv.kcalForWrite(rec1393, { zeroKcal: true }) === JOKE, "kcalForWrite 1393.1 → joke string");
+assert(conv.kcalForWrite(rec1393, { zeroKcal: false }) === 1393.1, "kcalForWrite false keeps 1393.1");
+var copiedZero = conv.recordsForWrite([rec1393], { zeroKcal: true });
+assert(copiedZero[0].kcal === JOKE, "recordsForWrite sets joke string");
+assert(typeof copiedZero[0].kcal === "string", "recordsForWrite kcal is a string");
+assert(copiedZero[0] !== rec1393, "recordsForWrite returns a shallow copy");
+assert(rec1393.kcal === 1393.1, "recordsForWrite does not mutate source kcal");
+assert(copiedZero[0].menu === rec1393.menu, "recordsForWrite keeps menu");
+assert(conv.recordsForWrite([rec1393], { zeroKcal: false })[0].kcal === 1393.1, "recordsForWrite off keeps 1393.1");
+
+var aoa1393Off = writeAoa([rec1393], { zeroKcal: false });
+assert(aoa1393Off[1][4] === 1393.1, "writeSheetJS false keeps 1393.1");
+var aoa1393On = writeAoa([rec1393], { zeroKcal: true });
+assert(aoa1393On[1][4] === JOKE, "writeSheetJS true writes joke string not 1393.1");
+assert(typeof aoa1393On[1][4] === "string", "writeSheetJS true Kcal is a string");
+assert(aoa1393On[1][4] !== 0, "writeSheetJS true Kcal is not numeric 0");
+assert(aoa1393On[1][3] === rec1393.menu, "writeSheetJS true does not write joke into menu");
+assert(JSON.stringify(aoa1393On).indexOf("1393.1") === -1, "zeroKcal aoa cannot emit 1393.1");
+assert(JSON.stringify(aoa1393On).indexOf(JOKE) !== -1, "zeroKcal aoa emits joke string");
+assert(rec1393.kcal === 1393.1, "writeSheetJS does not mutate source 1393.1");
+
+var alreadyJoke = conv.recordsForWrite([rec1393], { zeroKcal: true });
+var aoaPreJoke = writeAoa(alreadyJoke);
+assert(aoaPreJoke[1][4] === JOKE, "pre-mapped records write joke string even without options");
+assert(typeof aoaPreJoke[1][4] === "string", "pre-mapped records write a string");
+
+function writeExcelValues(records, options) {
+  var values = [];
+  var ExcelJS = {
+    Workbook: function () {
+      this.addWorksheet = function () {
+        return {
+          columns: null,
+          getRow: function (n) {
+            return {
+              height: 0,
+              getCell: function (col) {
+                var cell = {
+                  font: null,
+                  alignment: null,
+                  border: null,
+                  fill: null,
+                  numFmt: null
+                };
+                Object.defineProperty(cell, "value", {
+                  set: function (v) {
+                    if (n > 1) {
+                      values[n - 2] = values[n - 2] || [];
+                      values[n - 2][col - 1] = v;
+                    }
+                  },
+                  get: function () {
+                    return n > 1 && values[n - 2] ? values[n - 2][col - 1] : null;
+                  }
+                });
+                return cell;
+              }
+            };
+          }
+        };
+      };
+      this.xlsx = {
+        writeBuffer: function () {
+          return Promise.resolve([]);
+        }
+      };
+    }
+  };
+  return conv.writeExcelJS(ExcelJS, records, options).then(function () {
+    return values;
+  });
+}
+
+var html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+assert(/styles\.css\?v=/.test(html), "styles.css must have cache-bust query");
+assert(/convert\.js\?v=/.test(html), "convert.js must have cache-bust query");
+assert(/app\.js\?v=/.test(html), "app.js must have cache-bust query");
+var appSrc = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
+assert(/recordsForDownload/.test(appSrc), "download maps a shallow copy before write");
+assert(/copy\.kcal\s*=\s*text/.test(appSrc) || /copy\.kcal\s*=\s*zeroKcalText/.test(appSrc) || /copy\.kcal\s*=/.test(appSrc), "download copy sets joke kcal when checked");
+assert(/writeSheetJS\(XLSX,\s*records,\s*options\)/.test(appSrc), "download still passes options into writeSheetJS");
+assert(appSrc.indexOf("맛있게 먹으면 0Kcal") !== -1, "preview/download uses exact joke string");
+assert(appSrc.indexOf("escapeHtml(zero ? 0") === -1, "preview must not show numeric 0 when checked");
+assert(/zero \? kcalText/.test(appSrc) || /zero \? zeroKcalText/.test(appSrc), "preview Kcal uses joke string when checked");
 
 try {
   conv.recordsFromNeisRows([]);
@@ -278,6 +383,14 @@ function mealPayload(rows, total) {
     console.log("skip excel fixtures (set MEAL_SRC and vendor/xlsx.full.min.js to run)");
   }
 
+  var excelOn = await writeExcelValues([rec1393], { zeroKcal: true });
+  assert(excelOn[0][4] === JOKE, "writeExcelJS true writes joke string not 1393.1");
+  assert(typeof excelOn[0][4] === "string", "writeExcelJS true Kcal is a string");
+  assert(excelOn[0][4] !== 0, "writeExcelJS true Kcal is not numeric 0");
+  assert(excelOn[0][3] === rec1393.menu, "writeExcelJS true keeps menu");
+  var excelOff = await writeExcelValues([rec1393], { zeroKcal: false });
+  assert(excelOff[0][4] === 1393.1, "writeExcelJS false keeps 1393.1");
+
   if (fails.length) {
     console.error("\nFAIL (" + fails.length + ")");
     fails.forEach(function (f) { console.error(" -", f); });
@@ -380,9 +493,31 @@ function runExcelTests(XLSX) {
   assert(gridZero[1][3] === records[0].menu, "zeroKcal must not change menu cell");
   var zi;
   for (zi = 1; zi < gridZero.length; zi++) {
-    assert(gridZero[zi][4] === 0, "zeroKcal row " + zi + " Kcal expected 0 got " + gridZero[zi][4]);
+    assert(gridZero[zi][4] === JOKE, "zeroKcal row " + zi + " Kcal expected joke string got " + gridZero[zi][4]);
+    assert(typeof gridZero[zi][4] === "string", "zeroKcal row " + zi + " Kcal is a string");
+    assert(gridZero[zi][4] !== 0, "zeroKcal row " + zi + " Kcal is not numeric 0");
     assert(gridZero[zi][3] === records[zi - 1].menu, "zeroKcal row " + zi + " menu unchanged");
   }
+  var rec1393Excel = {
+    y: 2026, m: 8, d: 25, dateStr: "2026-08-25",
+    mealCode: 1, mealName: "중식", menu: "쌀밥", kcal: 1393.1, firstDish: "쌀밥"
+  };
+  var buf1393 = Buffer.from(conv.writeSheetJS(XLSX, [rec1393Excel], { zeroKcal: true }));
+  var grid1393 = XLSX.utils.sheet_to_json(
+    XLSX.read(buf1393, { type: "buffer", cellDates: true }).Sheets.Sheet1,
+    { header: 1, raw: true, defval: null }
+  );
+  assert(grid1393[1][4] === JOKE, "xlsx zeroKcal writes joke string, got " + grid1393[1][4]);
+  assert(typeof grid1393[1][4] === "string", "xlsx zeroKcal writes a string");
+  assert(grid1393[1][4] !== 0, "xlsx zeroKcal is not numeric 0");
+  assert(buf1393.indexOf(Buffer.from("1393.1")) === -1, "xlsx bytes must not contain 1393.1");
+  assert(buf1393.indexOf(Buffer.from(JOKE, "utf8")) !== -1, "xlsx bytes contain joke string");
+  var buf1393Off = Buffer.from(conv.writeSheetJS(XLSX, [rec1393Excel], { zeroKcal: false }));
+  var grid1393Off = XLSX.utils.sheet_to_json(
+    XLSX.read(buf1393Off, { type: "buffer", cellDates: true }).Sheets.Sheet1,
+    { header: 1, raw: true, defval: null }
+  );
+  assert(grid1393Off[1][4] === 1393.1, "xlsx unchecked keeps 1393.1");
 
   if (fs.existsSync(AUG)) {
     try {

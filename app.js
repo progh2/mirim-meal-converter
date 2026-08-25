@@ -136,16 +136,35 @@
     return { zeroKcal: !!(zeroKcalEl && zeroKcalEl.checked) };
   }
 
+  function zeroKcalText() {
+    return (typeof MealConverter !== "undefined" && MealConverter.ZERO_KCAL_TEXT) ||
+      "맛있게 먹으면 0Kcal";
+  }
+
+  function recordsForDownload(records, options) {
+    if (!(options && options.zeroKcal)) return records;
+    var text = zeroKcalText();
+    return records.map(function (rec) {
+      var copy = {};
+      for (var key in rec) {
+        if (Object.prototype.hasOwnProperty.call(rec, key)) copy[key] = rec[key];
+      }
+      copy.kcal = text;
+      return copy;
+    });
+  }
+
   function fillPreview() {
     if (!current) return;
     var zero = writeOptions().zeroKcal;
+    var kcalText = zeroKcalText();
     tbody.textContent = "";
     current.records.forEach(function (rec) {
       var tr = document.createElement("tr");
       tr.innerHTML =
         "<td>" + escapeHtml(rec.dateStr) + "</td>" +
         "<td>" + escapeHtml(rec.mealName) + "</td>" +
-        "<td>" + escapeHtml(zero ? 0 : rec.kcal) + "</td>" +
+        "<td>" + escapeHtml(zero ? kcalText : rec.kcal) + "</td>" +
         "<td class=\"menu-cell\">" + escapeHtml(rec.menu || "") + "</td>";
       tbody.appendChild(tr);
     });
@@ -307,10 +326,11 @@
     try {
       var out;
       var options = writeOptions();
+      var records = recordsForDownload(current.records, options);
       if (typeof ExcelJS !== "undefined" && MealConverter.writeExcelJS) {
-        out = await MealConverter.writeExcelJS(ExcelJS, current.records, options);
+        out = await MealConverter.writeExcelJS(ExcelJS, records, options);
       } else {
-        out = MealConverter.writeSheetJS(XLSX, current.records, options);
+        out = MealConverter.writeSheetJS(XLSX, records, options);
       }
       var blob = new Blob([out], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

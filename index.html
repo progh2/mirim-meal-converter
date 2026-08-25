@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260825c">
 </head>
 <body>
   <div class="page">
@@ -68,7 +68,7 @@
             <input id="zero-kcal" type="checkbox">
             맛있게 먹으면 0kcal
           </label>
-          <p class="zero-kcal-hint">체크하면 내려받는 파일의 Kcal를 모두 0으로 넣습니다.</p>
+          <p class="zero-kcal-hint">체크하면 내려받는 파일의 Kcal에 맛있게 먹으면 0Kcal 을 넣습니다.</p>
           <button type="button" id="download" class="btn primary">엑셀 다운로드</button>
         </div>
       </div>
@@ -106,7 +106,8 @@
   </div>
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  <script src="convert.js"></script>
-  <script src="app.js"></script>
+  <!-- bump ?v= when convert.js / app.js / styles.css change so Pages does not keep a stale convert.js -->
+  <script src="convert.js?v=20260825c"></script>
+  <script src="app.js?v=20260825c"></script>
 </body>
 </html>
