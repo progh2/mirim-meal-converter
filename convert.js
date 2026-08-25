@@ -77,20 +77,17 @@
     return Math.abs(r - Math.round(r)) < 1e-8 ? Math.round(r) : r;
   }
 
+  // Excel Kcal is 열량 only (first number). Do not add 단백질/칼슘/철분.
   function parseKcal(v) {
     if (!isNutrition(v)) return null;
     var t = cellStr(v).replace(/\s+/g, "");
     var parts = t.split("/").filter(Boolean);
-    var sum = 0;
-    var found = 0;
-    for (var i = 0; i < parts.length; i++) {
-      var n = parseFloat(parts[i]);
-      if (!isFinite(n)) return null;
-      sum += n;
-      found++;
+    var i, n;
+    for (i = 0; i < parts.length; i++) {
+      n = parseFloat(parts[i]);
+      if (isFinite(n)) return neatRound(n);
     }
-    if (found < 2) return null;
-    return neatRound(sum);
+    return null;
   }
 
   function isPureEventPart(part) {
