@@ -111,7 +111,11 @@ var mapped = conv.recordsFromNeisRows([NEIS_DINNER, NEIS_LUNCH_CALSU, NEIS_BREAK
   CAL_INFO: "10 Kcal",
   NTR_INFO: "단백질(g) : 1"
 }]);
-assert(mapped.filename === "mlsvTmplat_202509.xlsx", "filename " + mapped.filename);
+assert(mapped.filename === "mlsvTmplat_202509.xls", "filename " + mapped.filename);
+assert(/\.xls$/.test(mapped.filename), "filename ends with .xls");
+assert(!/\.xlsx$/.test(mapped.filename), "filename is not .xlsx");
+assert(conv.templateFilename(2025, 9) === "mlsvTmplat_202509.xls", "templateFilename uses .xls");
+assert(conv.templateFilename(2026, 8) === "mlsvTmplat_202608.xls", "templateFilename pads month");
 assert(mapped.records.length === 3, "skip empty dishes, got " + mapped.records.length);
 assert(mapped.records[0].mealCode === 0 && mapped.records[0].mealName === "조식", "MMEAL 1 → 조식 0");
 assert(mapped.records[1].mealCode === 1 && mapped.records[1].mealName === "중식", "MMEAL 2 → 중식 1");
@@ -142,6 +146,7 @@ mapped.records.forEach(function (rec) {
 
 function writeAoa(records, options) {
   var aoa = null;
+  var writeOpts = null;
   var stub = {
     utils: {
       aoa_to_sheet: function (rows) {
@@ -155,9 +160,13 @@ function writeAoa(records, options) {
       book_new: function () { return {}; },
       book_append_sheet: function () {}
     },
-    write: function () { return []; }
+    write: function (wb, opts) {
+      writeOpts = opts;
+      return [];
+    }
   };
   conv.writeSheetJS(stub, records, options);
+  writeAoa.lastWriteOpts = writeOpts;
   return aoa;
 }
 
@@ -165,6 +174,8 @@ var aoaOff = writeAoa(mapped.records);
 assert(aoaOff.length === mapped.records.length + 1, "writeSheetJS row count");
 assert(aoaOff[1][4] === mapped.records[0].kcal, "writeSheetJS keeps kcal when flag off");
 assert(aoaOff[1][3] === mapped.records[0].menu, "writeSheetJS keeps menu when flag off");
+assert(writeAoa.lastWriteOpts && writeAoa.lastWriteOpts.bookType === "xls", "writeSheetJS bookType xls");
+assert(writeAoa.lastWriteOpts.type === "array", "writeSheetJS type array");
 
 var aoaOn = writeAoa(mapped.records, { zeroKcal: true });
 assert(aoaOn[1][3] === mapped.records[0].menu, "writeSheetJS zeroKcal does not write joke into menu");
@@ -263,10 +274,24 @@ var html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 assert(/styles\.css\?v=/.test(html), "styles.css must have cache-bust query");
 assert(/convert\.js\?v=/.test(html), "convert.js must have cache-bust query");
 assert(/app\.js\?v=/.test(html), "app.js must have cache-bust query");
+assert(html.indexOf("mlsvTmplat_YYYYMM.xls") !== -1, "howto mentions .xls download name");
+assert(html.indexOf("mlsvTmplat_YYYYMM.xlsx") === -1, "howto must not mention .xlsx download");
+assert(/내려받는 파일은 \.xls/.test(html), "index says downloaded file is .xls");
+var readme = fs.readFileSync(path.join(__dirname, "README.md"), "utf8");
+assert(readme.indexOf("mlsvTmplat_YYYYMM.xls") !== -1, "README mentions .xls download name");
+assert(readme.indexOf("mlsvTmplat_YYYYMM.xlsx") === -1, "README must not mention .xlsx download");
+assert(/내려받는 파일은 \.xls/.test(readme), "README says downloaded file is .xls");
+var convertSrc = fs.readFileSync(path.join(__dirname, "convert.js"), "utf8");
+assert(/bookType:\s*"xls"/.test(convertSrc), "writeSheetJS uses bookType xls");
+assert(!/bookType:\s*"xlsx"/.test(convertSrc), "writeSheetJS must not use bookType xlsx");
 var appSrc = fs.readFileSync(path.join(__dirname, "app.js"), "utf8");
 assert(/recordsForDownload/.test(appSrc), "download maps a shallow copy before write");
 assert(/copy\.kcal\s*=\s*text/.test(appSrc) || /copy\.kcal\s*=\s*zeroKcalText/.test(appSrc) || /copy\.kcal\s*=/.test(appSrc), "download copy sets joke kcal when checked");
 assert(/writeSheetJS\(XLSX,\s*records,\s*options\)/.test(appSrc), "download still passes options into writeSheetJS");
+assert(appSrc.indexOf("writeExcelJS") === -1, "Pages download must not use ExcelJS");
+assert(appSrc.indexOf("application/vnd.ms-excel") !== -1, "download Blob MIME is application/vnd.ms-excel");
+assert(appSrc.indexOf("openxmlformats-officedocument.spreadsheetml.sheet") === -1, "download must not use xlsx MIME");
+assert(appSrc.indexOf("a.download = current.filename") !== -1, "download uses result.filename");
 assert(appSrc.indexOf("맛있게 먹으면 0Kcal") !== -1, "preview/download uses exact joke string");
 assert(appSrc.indexOf("escapeHtml(zero ? 0") === -1, "preview must not show numeric 0 when checked");
 assert(/zero \? kcalText/.test(appSrc) || /zero \? zeroKcalText/.test(appSrc), "preview Kcal uses joke string when checked");
@@ -357,6 +382,8 @@ function mealPayload(rows, total) {
       return Promise.resolve(jsonRes(mealPayload(dayRows, dayRows.length)));
     }
   });
+  assert(fetched.filename === "mlsvTmplat_202509.xls", "fetched filename " + fetched.filename);
+  assert(/\.xls$/.test(fetched.filename), "fetched filename ends with .xls");
   assert(fetched.records.length === 4, "daily fallback assembled month, got " + fetched.records.length);
   assert(calls.some(function (u) { return /MLSV_FROM_YMD=20250901/.test(u) && /MLSV_TO_YMD=20250901/.test(u); }), "fallback uses same-day range");
   assert(fetched.records[0].kcal === 763.5, "fetched breakfast kcal CAL_INFO only");
@@ -377,10 +404,18 @@ function mealPayload(rows, total) {
     assert(e.message.indexOf("공개되지") !== -1, "unpublished month message");
   }
 
-  if (fs.existsSync(SRC) && fs.existsSync(XLSX_PATH)) {
-    runExcelTests(require(XLSX_PATH));
+  var fixtureXLSX = loadSheetJS();
+  if (fs.existsSync(SRC) && fixtureXLSX) {
+    runExcelTests(fixtureXLSX);
   } else {
     console.log("skip excel fixtures (set MEAL_SRC and vendor/xlsx.full.min.js to run)");
+  }
+
+  var liveXLSX = loadSheetJS();
+  if (liveXLSX) {
+    runXlsRoundtrip(liveXLSX, [rec1393], mapped);
+  } else {
+    console.log("skip xls roundtrip (need vendor/xlsx.full.min.js or npm xlsx)");
   }
 
   var excelOn = await writeExcelValues([rec1393], { zeroKcal: true });
@@ -401,6 +436,49 @@ function mealPayload(rows, total) {
   console.error(err);
   process.exit(1);
 });
+
+function loadSheetJS() {
+  if (fs.existsSync(XLSX_PATH)) return require(XLSX_PATH);
+  try {
+    return require("xlsx");
+  } catch (e) {
+    return null;
+  }
+}
+
+function isOleXls(buf) {
+  return buf && buf.length >= 8 &&
+    buf[0] === 0xD0 && buf[1] === 0xCF && buf[2] === 0x11 && buf[3] === 0xE0;
+}
+
+function runXlsRoundtrip(XLSX, extraRecords, mappedResult) {
+  var sample = extraRecords && extraRecords.length ? extraRecords : mappedResult.records;
+  var captured = null;
+  var origWrite = XLSX.write;
+  XLSX.write = function (wb, opts) {
+    captured = opts;
+    return origWrite.apply(this, arguments);
+  };
+  var out;
+  try {
+    out = Buffer.from(conv.writeSheetJS(XLSX, sample, { zeroKcal: true }));
+  } finally {
+    XLSX.write = origWrite;
+  }
+  assert(captured && captured.bookType === "xls", "live write bookType xls");
+  assert(isOleXls(out), "write output is OLE/BIFF8 .xls not zip/xlsx");
+  assert(out[0] !== 0x50 || out[1] !== 0x4B, "write output is not a zip/xlsx PK header");
+  var wb = XLSX.read(out, { type: "buffer", cellDates: true });
+  assert(!!wb && wb.SheetNames && wb.SheetNames.length, "SheetJS can read written .xls");
+  if (wb.bookType) {
+    assert(wb.bookType === "xls", "read-back bookType xls got " + wb.bookType);
+  }
+  var grid = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {
+    header: 1, raw: true, defval: null
+  });
+  assert(grid[1][4] === JOKE, "xls zeroKcal still writes joke string in Kcal");
+  assert(typeof grid[1][4] === "string", "xls zeroKcal Kcal is a string");
+}
 
 function runExcelTests(XLSX) {
   var buf = fs.readFileSync(SRC);
@@ -424,6 +502,9 @@ function runExcelTests(XLSX) {
   var b0901 = find("2026-09-01", "조식");
   console.log("9/1 조식:", b0901 ? ("kcal=" + b0901.kcal + " first=" + b0901.firstDish) : "MISSING");
 
+  assert(/\.xls$/.test(result.filename), "parsed filename ends with .xls");
+  assert(!/\.xlsx$/.test(result.filename), "parsed filename is not .xlsx");
+  assert(result.filename === "mlsvTmplat_" + result.year + (result.month < 10 ? "0" : "") + result.month + ".xls", "parsed filename " + result.filename);
   assert(records.length >= 54 && records.length <= 58, "expected ~56 rows, got " + records.length);
   assert(records.length === 56, "exact 56 rows preferred, got " + records.length);
   assert(!!b0901, "missing 9/1 조식");
@@ -469,6 +550,8 @@ function runExcelTests(XLSX) {
   var outPath = path.join(outDir, result.filename);
   fs.writeFileSync(outPath, outBuf);
   console.log("wrote", outPath, outBuf.length, "bytes");
+  assert(isOleXls(outBuf), "fixture write is OLE/BIFF8 .xls");
+  assert(/\.xls$/.test(outPath), "wrote file path ends with .xls");
 
   var wb2 = XLSX.read(outBuf, { type: "buffer", cellDates: true });
   var grid2 = XLSX.utils.sheet_to_json(wb2.Sheets.Sheet1, { header: 1, raw: true, defval: null });
@@ -507,11 +590,16 @@ function runExcelTests(XLSX) {
     XLSX.read(buf1393, { type: "buffer", cellDates: true }).Sheets.Sheet1,
     { header: 1, raw: true, defval: null }
   );
-  assert(grid1393[1][4] === JOKE, "xlsx zeroKcal writes joke string, got " + grid1393[1][4]);
-  assert(typeof grid1393[1][4] === "string", "xlsx zeroKcal writes a string");
-  assert(grid1393[1][4] !== 0, "xlsx zeroKcal is not numeric 0");
-  assert(buf1393.indexOf(Buffer.from("1393.1")) === -1, "xlsx bytes must not contain 1393.1");
-  assert(buf1393.indexOf(Buffer.from(JOKE, "utf8")) !== -1, "xlsx bytes contain joke string");
+  assert(grid1393[1][4] === JOKE, "xls zeroKcal writes joke string, got " + grid1393[1][4]);
+  assert(typeof grid1393[1][4] === "string", "xls zeroKcal writes a string");
+  assert(grid1393[1][4] !== 0, "xls zeroKcal is not numeric 0");
+  assert(isOleXls(buf1393), "zeroKcal write is OLE/BIFF8 .xls");
+  assert(buf1393.indexOf(Buffer.from("1393.1")) === -1, "xls bytes must not contain 1393.1");
+  assert(
+    buf1393.indexOf(Buffer.from(JOKE, "utf8")) !== -1 ||
+      buf1393.indexOf(Buffer.from(JOKE, "utf16le")) !== -1,
+    "xls bytes contain joke string"
+  );
   var buf1393Off = Buffer.from(conv.writeSheetJS(XLSX, [rec1393Excel], { zeroKcal: false }));
   var grid1393Off = XLSX.utils.sheet_to_json(
     XLSX.read(buf1393Off, { type: "buffer", cellDates: true }).Sheets.Sheet1,

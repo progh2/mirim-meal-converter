@@ -321,19 +321,18 @@
     });
   }
 
-  downloadBtn.addEventListener("click", async function () {
+  downloadBtn.addEventListener("click", function () {
     if (!current) return;
+    if (typeof XLSX === "undefined" || typeof MealConverter === "undefined") {
+      showError("변환 스크립트를 불러오지 못했습니다. 페이지를 새로고침해 주세요.");
+      return;
+    }
     try {
-      var out;
       var options = writeOptions();
       var records = recordsForDownload(current.records, options);
-      if (typeof ExcelJS !== "undefined" && MealConverter.writeExcelJS) {
-        out = await MealConverter.writeExcelJS(ExcelJS, records, options);
-      } else {
-        out = MealConverter.writeSheetJS(XLSX, records, options);
-      }
+      var out = MealConverter.writeSheetJS(XLSX, records, options);
       var blob = new Blob([out], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        type: "application/vnd.ms-excel"
       });
       var a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
