@@ -171,6 +171,10 @@
     return (n < 10 ? "0" : "") + n;
   }
 
+  function templateFilename(year, month) {
+    return "mlsvTmplat_" + year + pad2(month) + ".xls";
+  }
+
   function formatYMD(p) {
     return p.y + "-" + pad2(p.m) + "-" + pad2(p.d);
   }
@@ -422,7 +426,7 @@
       records: records,
       year: year,
       month: month,
-      filename: "mlsvTmplat_" + year + pad2(month) + ".xlsx"
+      filename: templateFilename(year, month)
     };
   }
   var HEADERS = [
@@ -559,7 +563,7 @@
     var wb = XLSX.utils.book_new();
     var ws = applySheetJSSheet(XLSX, records, options);
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
-    return XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    return XLSX.write(wb, { bookType: "xls", type: "array" });
   }
 
   var NEIS_HUB = "https://open.neis.go.kr/hub";
@@ -660,7 +664,7 @@
       records: records,
       year: year,
       month: month,
-      filename: "mlsvTmplat_" + year + pad2(month) + ".xlsx",
+      filename: templateFilename(year, month),
       sheetName: "나이스"
     };
   }
@@ -950,6 +954,7 @@
     pickMealSheet: pickMealSheet,
     writeSheetJS: writeSheetJS,
     writeExcelJS: writeExcelJS,
+    templateFilename: templateFilename,
     kcalForWrite: kcalForWrite,
     recordsForWrite: recordsForWrite,
     ZERO_KCAL_TEXT: ZERO_KCAL_TEXT,

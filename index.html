@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260825d">
+  <link rel="stylesheet" href="styles.css?v=20260826a">
 </head>
 <body>
   <div class="page">
@@ -49,7 +49,7 @@
             <input id="neis-month" type="month" name="month" required>
           </label>
           <button type="button" id="neis-fetch" class="btn primary">급식 가져오기</button>
-          <p class="neis-warning" role="note">나이스 API에 등록된 열량 값이 잘못 계산된 경우가 많습니다. 홈페이지에 올리기 전에 급식실 식단표와 비교해 주세요.</p>
+          <p class="neis-warning" role="note">나이스 API에 등록된 열량 값이 급식 계획 초기의 수치라서 실제와 다를 수 있습니다. 정확한 열량값이 필요하시면 급식실 식단표 엑셀을 올려 주세요.</p>
         </form>
       </section>
     </div>
@@ -91,7 +91,7 @@
       <ol>
         <li><strong>식단표 엑셀 올리기</strong>로 그달 달력형 식단표(.xlsx 또는 .xls)를 올리거나, <strong>나이스에서 가져오기</strong>로 학교를 찾고 연월을 고릅니다.</li>
         <li>미리보기에서 날짜·끼니·칼로리·메뉴 전체를 확인합니다.</li>
-        <li><strong>엑셀 다운로드</strong>로 받은 mlsvTmplat_YYYYMM.xlsx 를 연구정보원 학교 홈페이지 급식 등록(서식 업로드)에 올립니다.</li>
+        <li><strong>엑셀 다운로드</strong>로 받은 mlsvTmplat_YYYYMM.xls 를 연구정보원 학교 홈페이지 급식 등록(서식 업로드)에 올립니다. 내려받는 파일은 .xls 입니다.</li>
       </ol>
       <ul class="notes">
         <li>나이스에 없는 날(주말·공휴일·빈 석식, 아직 공개되지 않은 달)은 자동으로 빠집니다.</li>
@@ -107,7 +107,7 @@
 
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <!-- bump ?v= when convert.js / app.js / styles.css change so Pages does not keep a stale convert.js -->
-  <script src="convert.js?v=20260825d"></script>
-  <script src="app.js?v=20260825d"></script>
+  <script src="convert.js?v=20260826a"></script>
+  <script src="app.js?v=20260826a"></script>
 </body>
 </html>
